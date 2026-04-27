@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -185,14 +184,13 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
         }
     }
 
-    fun addFromPricebook(entries: Collection<PickedEntry>, sectionOverride: String? = null) {
+    fun addFromPricebook(entries: Collection<PickedEntry>) {
         val list = _s.value.lineItems.toMutableList()
         entries.forEach { e ->
             val idx = list.indexOfFirst { it.pricebook_id == e.item.id }
-            val effectiveItemType = sectionOverride ?: e.item.item_type ?: "service"
             val li = EditableLineItem(name = e.item.name, description = e.item.description, sku = e.item.sku,
                 quantity = e.qty.toDouble(), unit_price = e.effectivePrice,
-                item_type = effectiveItemType, taxable = e.item.taxable,
+                item_type = e.item.item_type, taxable = e.item.taxable,
                 tax_rate = if (e.item.taxable) _s.value.defaultTaxRate else 0.0,
                 image_url = e.item.image_url, pricebook_id = e.item.id,
                 price_overridden = e.priceOverridden)
@@ -219,17 +217,16 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
     fun addTierLineItem(tierIdx: Int, li: EditableLineItem) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems + li) else t }) } }
     fun removeTierLineItem(tierIdx: Int, itemId: String) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems.filter { l -> l.id != itemId }) else t }) } }
     fun updateTierLineItem(tierIdx: Int, li: EditableLineItem) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems.map { l -> if (l.id == li.id) li else l }) else t }) } }
-    fun addFromPricebookToTier(tierIdx: Int, entries: Collection<PickedEntry>, sectionOverride: String? = null) {
+    fun addFromPricebookToTier(tierIdx: Int, entries: Collection<PickedEntry>) {
         _s.update { st ->
             st.copy(tiers = st.tiers.mapIndexed { i, t ->
                 if (i != tierIdx) t else {
                     val list = t.lineItems.toMutableList()
                     entries.forEach { e ->
                         val idx2 = list.indexOfFirst { it.pricebook_id == e.item.id }
-                        val effectiveItemType = sectionOverride ?: e.item.item_type ?: "service"
                         val li = EditableLineItem(name = e.item.name, description = e.item.description, sku = e.item.sku,
                             quantity = e.qty.toDouble(), unit_price = e.effectivePrice,
-                            item_type = effectiveItemType, taxable = e.item.taxable,
+                            item_type = e.item.item_type, taxable = e.item.taxable,
                             tax_rate = if (e.item.taxable) st.defaultTaxRate else 0.0,
                             image_url = e.item.image_url, pricebook_id = e.item.id,
                             price_overridden = e.priceOverridden)
@@ -1000,9 +997,11 @@ fun EstimateBuildScreen(
 ) {
     val st     by vm.state.collectAsState()
     val picked by pickerVm.picked.collectAsState()
+    // Picker is activity-scoped, so its state persists across screens. Clear stale picks
+    // from a previous caller when this screen mounts.
+    LaunchedEffect(Unit) { pickerVm.clearPicked() }
     var showDiscount by remember { mutableStateOf(false) }
     var depositAmtText by remember { mutableStateOf("") }
-    var pendingSection by rememberSaveable { mutableStateOf<String?>(null) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val isGbb = st.presentationMode == "gbb"
@@ -1020,10 +1019,9 @@ fun EstimateBuildScreen(
     }
     LaunchedEffect(picked) {
         if (picked.isNotEmpty()) {
-            if (isGbb) vm.addFromPricebookToTier(st.selectedGbbTab, picked.values, pendingSection)
-            else vm.addFromPricebook(picked.values, pendingSection)
+            if (isGbb) vm.addFromPricebookToTier(st.selectedGbbTab, picked.values)
+            else vm.addFromPricebook(picked.values)
             pickerVm.clearPicked()
-            pendingSection = null
         }
     }
     LaunchedEffect(st.error) { st.error?.let { snack.showSnackbar(it); vm.clearError() } }
@@ -1111,11 +1109,11 @@ fun EstimateBuildScreen(
                 val tierMaterials = tier.lineItems.filter { it.item_type == "material" }
                 val tierDiscounts = tier.lineItems.filter { it.item_type == "discount" }
                 LineItemSection("SERVICE", tierServices,
-                    onAdd = { pendingSection = "service"; onAddFromPricebook("service") },
+                    onAdd = { onAddFromPricebook("service") },
                     onRemove = { vm.removeTierLineItem(tIdx, it) },
                     onUpdate = { vm.updateTierLineItem(tIdx, it) })
                 LineItemSection("MATERIALS", tierMaterials,
-                    onAdd = { pendingSection = "material"; onAddFromPricebook("material") },
+                    onAdd = { onAddFromPricebook("material") },
                     onRemove = { vm.removeTierLineItem(tIdx, it) },
                     onUpdate = { vm.updateTierLineItem(tIdx, it) })
                 CRMCard {
@@ -1145,9 +1143,9 @@ fun EstimateBuildScreen(
             } else {
                 // Standard mode
                 // Services
-                LineItemSection("SERVICE", vm.services, onAdd = { pendingSection = "service"; onAddFromPricebook("service") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
+                LineItemSection("SERVICE", vm.services, onAdd = { onAddFromPricebook("service") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
                 // Materials
-                LineItemSection("MATERIALS", vm.materials, onAdd = { pendingSection = "material"; onAddFromPricebook("material") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
+                LineItemSection("MATERIALS", vm.materials, onAdd = { onAddFromPricebook("material") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
                 // Discounts
                 CRMCard {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { SectionLabel("DISCOUNTS"); TextButton(onClick = { showDiscount = true }) { Text("Add Discount") } }

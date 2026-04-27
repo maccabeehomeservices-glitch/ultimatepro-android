@@ -2,6 +2,7 @@ package com.ultimatepro.ui
 
 import android.app.Activity
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.compose.animation.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.padding
@@ -455,16 +456,21 @@ fun App(
             }
             composable(Route.ESTIMATE_BUILD, listOf(navArgument("jobId") { type = NavType.StringType })) {
                 val jobId = it.arguments?.getString("jobId") ?: ""
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 EstimateBuildScreen(
                     jobId              = jobId,
                     onBack             = { navController.popBackStack() },
                     onSign             = { estimateId -> navController.navigate("estimates/$estimateId/sign") },
                     onSend             = { estimateId -> navController.navigate("estimates/$estimateId/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) }
+                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    pickerVm           = pickerVm
                 )
             }
             composable(Route.ESTIMATE_EDIT, listOf(navArgument("id") { type = NavType.StringType })) {
                 val estimateId = it.arguments?.getString("id") ?: ""
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 // jobId is blank — EstimateBuildViewModel.loadExisting() will derive it from the estimate
                 EstimateBuildScreen(
                     jobId              = "",
@@ -472,18 +478,22 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) }
+                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    pickerVm           = pickerVm
                 )
             }
             composable(Route.ESTIMATE_BUILD_CUSTOMER, listOf(navArgument("customerId") { type = NavType.StringType })) {
                 val customerId = it.arguments?.getString("customerId") ?: ""
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 EstimateBuildScreen(
                     jobId              = "",
                     customerId         = customerId,
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) }
+                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    pickerVm           = pickerVm
                 )
             }
             composable(Route.INVOICE_NEW, listOf(navArgument("customerId") { type = NavType.StringType })) {
@@ -562,7 +572,8 @@ fun App(
             composable(Route.INVOICE_DETAIL, listOf(navArgument("id") { type = NavType.StringType })) { entry ->
                 val id = entry.arguments?.getString("id") ?: ""
                 val vm: InvoiceViewModel = hiltViewModel()
-                val pickerVm: PricebookPickerViewModel = hiltViewModel(entry)
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 val socketVm: SocketViewModel = hiltViewModel()
                 // Real-time: refresh when customer signs via the web signing page
                 LaunchedEffect(Unit) {
@@ -687,30 +698,11 @@ fun App(
                     )
                 }
             }
-            // Flat picker — used when opening from Create/Edit Estimate or Invoice detail.
-            // IMPORTANT: scope the PricebookPickerViewModel to the parent screen's back stack entry
-            // so that picked items are visible to that screen's LaunchedEffect(picked) observer.
-            composable(Route.PRICEBOOK_ALL) { entry ->
-                val parentEntry = remember(entry) {
-                    val callerRoutes = listOf(
-                        Route.ESTIMATE_BUILD,
-                        Route.ESTIMATE_BUILD_CUSTOMER,
-                        Route.ESTIMATE_EDIT,
-                        Route.INVOICE_DETAIL
-                    )
-                    val backStack = navController.currentBackStack.value
-                    val currentIndex = backStack.indexOfLast { it == entry }
-                    val parent = if (currentIndex > 0) {
-                        backStack.subList(0, currentIndex).lastOrNull { be ->
-                            callerRoutes.any { route ->
-                                be.destination.route == route ||
-                                    be.destination.route?.startsWith(route.substringBefore("/{")) == true
-                            }
-                        }
-                    } else null
-                    parent ?: entry
-                }
-                val pickerVm: PricebookPickerViewModel = hiltViewModel(parentEntry)
+            // Flat picker — uses an activity-scoped PricebookPickerViewModel so the same
+            // VM instance is shared with the calling Estimate/Invoice screen. No back-stack walk.
+            composable(Route.PRICEBOOK_ALL) {
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 PricebookItemListScreen(
                     categoryId   = null,
                     categoryName = "All Items",
@@ -731,26 +723,8 @@ fun App(
             }
             composable(Route.PRICEBOOK_ITEM, listOf(navArgument("itemId") { type = NavType.StringType })) { entry ->
                 val itemId = entry.arguments?.getString("itemId") ?: ""
-                val pickerEntry = remember(entry) {
-                    val callerRoutes = listOf(
-                        Route.ESTIMATE_BUILD,
-                        Route.ESTIMATE_BUILD_CUSTOMER,
-                        Route.ESTIMATE_EDIT,
-                        Route.INVOICE_DETAIL
-                    )
-                    val backStack = navController.currentBackStack.value
-                    val currentIndex = backStack.indexOfLast { it == entry }
-                    val parent = if (currentIndex > 0) {
-                        backStack.subList(0, currentIndex).lastOrNull { be ->
-                            callerRoutes.any { route ->
-                                be.destination.route == route ||
-                                    be.destination.route?.startsWith(route.substringBefore("/{")) == true
-                            }
-                        }
-                    } else null
-                    parent ?: entry
-                }
-                val pickerVm: PricebookPickerViewModel = hiltViewModel(pickerEntry)
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 PricebookItemDetailScreen(
                     itemId  = itemId,
                     vm      = pickerVm,

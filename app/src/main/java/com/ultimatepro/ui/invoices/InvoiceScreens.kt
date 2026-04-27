@@ -316,6 +316,8 @@ fun InvoiceDetailScreen(
     val picked by (pickerVm?.picked?.collectAsState() ?: remember { mutableStateOf(emptyMap<String, PickedEntry>()) })
     val snack  = remember { SnackbarHostState() }
     var showPaymentOptions by remember { mutableStateOf(false) }
+    // Picker is activity-scoped; clear stale picks from a previous caller on mount.
+    LaunchedEffect(Unit) { pickerVm?.clearPicked() }
     LaunchedEffect(id) { vm.loadInv(id) }
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.clearMsg() } }
     LaunchedEffect(picked) {
