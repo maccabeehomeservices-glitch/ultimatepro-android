@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
@@ -601,10 +602,10 @@ fun EstimateDetailScreen(
     LaunchedEffect(id) { vm.loadEst(id) }
     // Reload when returning from sign/edit screens so signature/changes appear immediately
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    LaunchedEffect(lifecycleOwner) {
-        snapshotFlow { lifecycleOwner.lifecycle.currentState }
-            .filter { state -> state == Lifecycle.State.RESUMED }
-            .collect { vm.loadEst(id) }
+    LaunchedEffect(lifecycleOwner, id) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.loadEst(id)
+        }
     }
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.clearMsg(); converting = false } }
     // Poll every 10 s while waiting for remote signature; detect approved transition
