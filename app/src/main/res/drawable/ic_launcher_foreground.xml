@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    UltimatePro logo mark — hex compass level icon
+    SVG coordinate space: viewportWidth=220, viewportHeight=220
+    Mark bounding box: x 20-200 (180 units), y 10-218 (208 units)
+    Wordmark excluded (was at y 232-258 in original SVG).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="220"
+    android:viewportHeight="220">
+
+    <!-- ── Outer hex bold frame ─────────────────────────────────────────── -->
+    <path
+        android:pathData="M110,10 L200,62 L200,166 L110,218 L20,166 L20,62 Z"
+        android:fillColor="#0B1824"
+        android:strokeColor="#3A7BD5"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round"/>
+
+    <!-- ── Inner hex rule (subtle depth line) ──────────────────────────── -->
+    <path
+        android:pathData="M110,26 L188,72 L188,156 L110,202 L32,156 L32,72 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#162E4A"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"/>
+
+    <!-- ── U shape (background brand arc, 55% opacity) ─────────────────── -->
+    <path
+        android:pathData="M62,60 L62,130 Q62,168 110,168 Q158,168 158,130 L158,60"
+        android:fillColor="#00000000"
+        android:strokeColor="#1A3A60"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.55"/>
+
+    <!-- ── C shape (background brand arc, 38% opacity) ─────────────────── -->
+    <path
+        android:pathData="M148,72 Q178,114 148,156"
+        android:fillColor="#00000000"
+        android:strokeColor="#12304E"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.38"/>
+
+    <!-- ── Compass left arm ─────────────────────────────────────────────── -->
+    <path
+        android:pathData="M52,162 L110,76"
+        android:fillColor="#00000000"
+        android:strokeColor="#3A7BD5"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"/>
+
+    <!-- ── Compass right arm ────────────────────────────────────────────── -->
+    <path
+        android:pathData="M168,162 L110,76"
+        android:fillColor="#00000000"
+        android:strokeColor="#3A7BD5"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"/>
+
+    <!-- ── Compass spread bar (70% opacity) ────────────────────────────── -->
+    <path
+        android:pathData="M70,136 L150,136"
+        android:fillColor="#00000000"
+        android:strokeColor="#3A7BD5"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.7"/>
+
+    <!-- ── Compass foot left (circle cx=52 cy=162 r=4) ─────────────────── -->
+    <path
+        android:pathData="M48,162 A4,4,0,1,0,56,162 A4,4,0,1,0,48,162 Z"
+        android:fillColor="#1E4A80"/>
+
+    <!-- ── Compass foot right (circle cx=168 cy=162 r=4) ───────────────── -->
+    <path
+        android:pathData="M164,162 A4,4,0,1,0,172,162 A4,4,0,1,0,164,162 Z"
+        android:fillColor="#1E4A80"/>
+
+    <!-- ── Compass pivot (circle cx=110 cy=76 r=5) ─────────────────────── -->
+    <path
+        android:pathData="M105,76 A5,5,0,1,0,115,76 A5,5,0,1,0,105,76 Z"
+        android:fillColor="#2A6AAF"/>
+
+    <!-- ── Level bar (pill: x=42 y=108 w=136 h=15 rx=7.5) ─────────────── -->
+    <path
+        android:pathData="M49.5,108 L170.5,108 A7.5,7.5,0,0,1,178,115.5 A7.5,7.5,0,0,1,170.5,123 L49.5,123 A7.5,7.5,0,0,1,42,115.5 A7.5,7.5,0,0,1,49.5,108 Z"
+        android:fillColor="#0E2038"
+        android:strokeColor="#4A90D9"
+        android:strokeWidth="2.8"/>
+
+    <!-- ── Level tick — major left ──────────────────────────────────────── -->
+    <path
+        android:pathData="M76,108 L76,123"
+        android:fillColor="#00000000"
+        android:strokeColor="#1A4070"
+        android:strokeWidth="1.5"/>
+
+    <!-- ── Level tick — major right ─────────────────────────────────────── -->
+    <path
+        android:pathData="M144,108 L144,123"
+        android:fillColor="#00000000"
+        android:strokeColor="#1A4070"
+        android:strokeWidth="1.5"/>
+
+    <!-- ── Level tick — minor left ──────────────────────────────────────── -->
+    <path
+        android:pathData="M93,108 L93,116"
+        android:fillColor="#00000000"
+        android:strokeColor="#152E50"
+        android:strokeWidth="1.2"/>
+
+    <!-- ── Level tick — minor right ─────────────────────────────────────── -->
+    <path
+        android:pathData="M127,108 L127,116"
+        android:fillColor="#00000000"
+        android:strokeColor="#152E50"
+        android:strokeWidth="1.2"/>
+
+    <!-- ── Level bubble ring — RED (circle cx=110 cy=115 r=5.5) ────────── -->
+    <path
+        android:pathData="M104.5,115 A5.5,5.5,0,1,0,115.5,115 A5.5,5.5,0,1,0,104.5,115 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#E63946"
+        android:strokeWidth="2.5"/>
+
+    <!-- ── Level bubble dot — RED (circle cx=110 cy=115 r=2) ───────────── -->
+    <path
+        android:pathData="M108,115 A2,2,0,1,0,112,115 A2,2,0,1,0,108,115 Z"
+        android:fillColor="#E63946"/>
+
+    <!-- ── Tape measure major ticks ─────────────────────────────────────── -->
+    <path
+        android:pathData="M50,172 L50,180"
+        android:fillColor="#00000000"
+        android:strokeColor="#1E4A7A"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M82,172 L82,180"
+        android:fillColor="#00000000"
+        android:strokeColor="#1E4A7A"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M110,172 L110,182"
+        android:fillColor="#00000000"
+        android:strokeColor="#2A5A8A"
+        android:strokeWidth="2.5"/>
+    <path
+        android:pathData="M138,172 L138,180"
+        android:fillColor="#00000000"
+        android:strokeColor="#1E4A7A"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M170,172 L170,180"
+        android:fillColor="#00000000"
+        android:strokeColor="#1E4A7A"
+        android:strokeWidth="2"/>
+
+</vector>

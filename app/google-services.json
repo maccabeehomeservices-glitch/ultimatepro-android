@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "371541583417",
+    "project_id": "ultimatecrm-a9e32",
+    "storage_bucket": "ultimatecrm-a9e32.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371541583417:android:d9e6d1062b9e36fd5e0fe8",
+        "android_client_info": {
+          "package_name": "com.ultimatecrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv8hZyyA1HPy78fUnGYwZdkHss1Waw6kw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371541583417:android:3edd56b8126095765e0fe8",
+        "android_client_info": {
+          "package_name": "com.ultimatepro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv8hZyyA1HPy78fUnGYwZdkHss1Waw6kw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

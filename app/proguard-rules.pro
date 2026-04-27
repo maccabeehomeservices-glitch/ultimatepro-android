@@ -1,0 +1,11 @@
+-keepattributes Signature, *Annotation*
+-keep class retrofit2.** { *; }
+-keep class com.google.gson.** { *; }
+-keep class com.ultimatecrm.domain.model.** { *; }
+-keepclassmembers class * { @com.google.gson.annotations.SerializedName <fields>; }
+-dontwarn okhttp3.**
+-keep class okhttp3.** { *; }
+-keep class io.socket.** { *; }
+-keep class dagger.hilt.** { *; }
+-keepclassmembers class * implements android.os.Parcelable { static ** CREATOR; }
+-keep class com.google.android.gms.maps.** { *; }
