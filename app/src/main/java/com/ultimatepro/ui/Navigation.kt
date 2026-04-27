@@ -710,7 +710,6 @@ fun App(
                     } else null
                     parent ?: entry
                 }
-                android.util.Log.d("EST_PICKER", "Picker scoped to: ${parentEntry.destination.route}, current entry: ${entry.destination.route}")
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(parentEntry)
                 PricebookItemListScreen(
                     categoryId   = null,
@@ -751,7 +750,6 @@ fun App(
                     } else null
                     parent ?: entry
                 }
-                android.util.Log.d("EST_PICKER", "PricebookItem scoped to: ${pickerEntry.destination.route}, current entry: ${entry.destination.route}")
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(pickerEntry)
                 PricebookItemDetailScreen(
                     itemId  = itemId,
