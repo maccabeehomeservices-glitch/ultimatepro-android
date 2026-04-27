@@ -692,18 +692,25 @@ fun App(
             // so that picked items are visible to that screen's LaunchedEffect(picked) observer.
             composable(Route.PRICEBOOK_ALL) { entry ->
                 val parentEntry = remember(entry) {
-                    try { navController.getBackStackEntry(Route.ESTIMATE_BUILD) }
-                    catch (_: Exception) {
-                        try { navController.getBackStackEntry(Route.ESTIMATE_BUILD_CUSTOMER) }
-                        catch (_: Exception) {
-                            try { navController.getBackStackEntry(Route.ESTIMATE_EDIT) }
-                            catch (_: Exception) {
-                                try { navController.getBackStackEntry(Route.INVOICE_DETAIL) }
-                                catch (_: Exception) { entry }
+                    val callerRoutes = listOf(
+                        Route.ESTIMATE_BUILD,
+                        Route.ESTIMATE_BUILD_CUSTOMER,
+                        Route.ESTIMATE_EDIT,
+                        Route.INVOICE_DETAIL
+                    )
+                    val backStack = navController.currentBackStack.value
+                    val currentIndex = backStack.indexOfLast { it == entry }
+                    val parent = if (currentIndex > 0) {
+                        backStack.subList(0, currentIndex).lastOrNull { be ->
+                            callerRoutes.any { route ->
+                                be.destination.route == route ||
+                                    be.destination.route?.startsWith(route.substringBefore("/{")) == true
                             }
                         }
-                    }
+                    } else null
+                    parent ?: entry
                 }
+                android.util.Log.d("EST_PICKER", "Picker scoped to: ${parentEntry.destination.route}, current entry: ${entry.destination.route}")
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(parentEntry)
                 PricebookItemListScreen(
                     categoryId   = null,
@@ -726,18 +733,25 @@ fun App(
             composable(Route.PRICEBOOK_ITEM, listOf(navArgument("itemId") { type = NavType.StringType })) { entry ->
                 val itemId = entry.arguments?.getString("itemId") ?: ""
                 val pickerEntry = remember(entry) {
-                    try { navController.getBackStackEntry(Route.ESTIMATE_BUILD) }
-                    catch (_: Exception) {
-                        try { navController.getBackStackEntry(Route.ESTIMATE_BUILD_CUSTOMER) }
-                        catch (_: Exception) {
-                            try { navController.getBackStackEntry(Route.ESTIMATE_EDIT) }
-                            catch (_: Exception) {
-                                try { navController.getBackStackEntry(Route.INVOICE_DETAIL) }
-                                catch (_: Exception) { entry }
+                    val callerRoutes = listOf(
+                        Route.ESTIMATE_BUILD,
+                        Route.ESTIMATE_BUILD_CUSTOMER,
+                        Route.ESTIMATE_EDIT,
+                        Route.INVOICE_DETAIL
+                    )
+                    val backStack = navController.currentBackStack.value
+                    val currentIndex = backStack.indexOfLast { it == entry }
+                    val parent = if (currentIndex > 0) {
+                        backStack.subList(0, currentIndex).lastOrNull { be ->
+                            callerRoutes.any { route ->
+                                be.destination.route == route ||
+                                    be.destination.route?.startsWith(route.substringBefore("/{")) == true
                             }
                         }
-                    }
+                    } else null
+                    parent ?: entry
                 }
+                android.util.Log.d("EST_PICKER", "PricebookItem scoped to: ${pickerEntry.destination.route}, current entry: ${entry.destination.route}")
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(pickerEntry)
                 PricebookItemDetailScreen(
                     itemId  = itemId,
