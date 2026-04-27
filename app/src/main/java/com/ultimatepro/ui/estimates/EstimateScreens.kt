@@ -992,8 +992,8 @@ fun EstimateBuildScreen(
     jobId: String, estimateId: String? = null, customerId: String? = null,
     onBack: () -> Unit, onSign: (String) -> Unit, onSend: (String) -> Unit,
     onAddFromPricebook: (String) -> Unit,
-    vm: EstimateBuildViewModel = hiltViewModel(),
-    pickerVm: PricebookPickerViewModel = hiltViewModel()
+    pickerVm: PricebookPickerViewModel,
+    vm: EstimateBuildViewModel = hiltViewModel()
 ) {
     val st     by vm.state.collectAsState()
     val picked by pickerVm.picked.collectAsState()

@@ -102,7 +102,7 @@ object Route {
     // Pricebook
     const val PRICEBOOK                 = "pricebook"
     const val PRICEBOOK_ALL             = "pricebook/all"          // flat picker — bypasses categories
-    const val PRICEBOOK_CATEGORY        = "pricebook/{categoryId}" // picker: items in a category
+    const val PRICEBOOK_CATEGORY        = "pricebook/category/{categoryId}" // picker: items in a category
     const val PRICEBOOK_ITEM            = "pricebook/item/{itemId}"
     const val PRICEBOOK_MANAGE          = "pricebook/manage"       // manage: category grid
     const val PRICEBOOK_MANAGE_CATEGORY = "pricebook/manage/{categoryId}/items" // manage: items in category
@@ -681,7 +681,7 @@ fun App(
                 val canRestock = invSettings.enabled && techTruck != null
 
                 PricebookCategoryScreen(
-                    onCategory       = { cat -> navController.navigate("pricebook/${cat.id}") },
+                    onCategory       = { cat -> navController.navigate("pricebook/category/${cat.id}") },
                     onDone           = { navController.popBackStack() },
                     onBack           = { navController.popBackStack() },
                     onRequestRestock = if (canRestock) ({ showRestock = true }) else null
@@ -714,8 +714,11 @@ fun App(
             }
             composable(Route.PRICEBOOK_CATEGORY, listOf(navArgument("categoryId") { type = NavType.StringType })) {
                 val catId = it.arguments?.getString("categoryId") ?: ""
+                val activity = LocalContext.current as ComponentActivity
+                val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 PricebookItemListScreen(
                     categoryId = catId,
+                    vm         = pickerVm,
                     onItem     = { item -> navController.navigate("pricebook/item/${item.id}") },
                     onBack     = { navController.popBackStack() },
                     onDone     = { navController.popBackStack() }
