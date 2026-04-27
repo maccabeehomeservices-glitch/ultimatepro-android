@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ultimatepro.BuildConfig
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.ui.auth.AuthViewModel
@@ -237,8 +238,34 @@ fun SettingsScreen(
                 Item("Sign Out",   Icons.Default.Logout, { showLogout = true }, tint = AppColors.Red)
             }
 
+            Section("About") {
+                ListItem(
+                    headlineContent = { Text("Version") },
+                    supportingContent = {
+                        Text("${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    leadingContent = {
+                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Built") },
+                    supportingContent = {
+                        Text(BuildConfig.BUILD_TIMESTAMP,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    leadingContent = {
+                        Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                )
+            }
+
             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                Text("UltimatePro v1.0.0", style = MaterialTheme.typography.bodySmall,
+                Text("UltimatePro v${BuildConfig.VERSION_NAME} · Built ${BuildConfig.BUILD_TIMESTAMP}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

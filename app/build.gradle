@@ -20,6 +20,7 @@ android {
         manifestPlaceholders = [MAPS_API_KEY: "AIzaSyDtSGWBuiTFR5BbomG8ZFNYeiwUszkJiNQ"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary true }
+        buildConfigField "String", "BUILD_TIMESTAMP", "\"${new Date().format("yyyy-MM-dd HH:mm")}\""
     }
 
     signingConfigs {
