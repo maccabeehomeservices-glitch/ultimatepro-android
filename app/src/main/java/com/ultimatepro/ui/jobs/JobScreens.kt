@@ -168,10 +168,34 @@ class JobViewModel @Inject constructor(
         load()
         savedStateHandle.get<String>("ticket")?.takeIf { it.isNotBlank() }?.let { parseTicket(it) }
     }
-    fun load(status: String? = null, search: String? = null, from: String? = null, to: String? = null) {
+    fun load(
+        statuses: List<String>? = null,
+        techIds: List<String>? = null,
+        from: String? = null,
+        to: String? = null,
+        activityFrom: String? = null,
+        activityTo: String? = null,
+        partnerView: Boolean = false,
+        search: String? = null,
+        sort: String = "upcoming"
+    ) {
         viewModelScope.launch {
             _s.update { it.copy(loading = true) }
-            val r = repo.getJobs(status = status, search = search, from = from, to = to)
+            val r = if (partnerView) {
+                repo.getJobs(partnerView = true, sort = sort)
+            } else {
+                repo.getJobs(
+                    status       = statuses?.takeIf { it.isNotEmpty() }?.joinToString(","),
+                    techId       = techIds?.takeIf { it.isNotEmpty() }?.joinToString(","),
+                    from         = from,
+                    to           = to,
+                    activityFrom = activityFrom,
+                    activityTo   = activityTo,
+                    search       = search,
+                    sort         = sort,
+                    includeAllStatuses = statuses?.contains("deleted") == true
+                )
+            }
             _s.update { it.copy(loading = false, jobs = (r as? Result.Success)?.data?.jobs ?: emptyList(), error = (r as? Result.Error)?.message) }
         }
     }
@@ -187,7 +211,7 @@ class JobViewModel @Inject constructor(
     fun restoreJob(id: String) {
         viewModelScope.launch {
             repo.updateJobStatus(id, "unscheduled")
-            load("deleted")
+            load(statuses = listOf("deleted"))
         }
     }
     fun loadJob(id: String) {
@@ -649,20 +673,127 @@ class JobViewModel @Inject constructor(
     }
 }
 
+// ── Smart helpers for the Jobs dashboard ───────────────────────────────────
+// Date helpers return ISO 8601 (local-naive) strings so the backend's TIMESTAMPTZ
+// comparison treats them as the device's local wall clock.
+
+private fun isoDate(cal: Calendar): String =
+    "%04d-%02d-%02d".format(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
+
+/** Returns (from, to) ISO 8601 bounds for a named range. Monday-Sunday week boundary. */
+private fun dateBoundsFor(
+    range: String,
+    customFrom: String? = null,
+    customTo: String? = null
+): Pair<String?, String?> {
+    val cal = Calendar.getInstance()
+    return when (range) {
+        "today" -> {
+            val d = isoDate(cal)
+            "${d}T00:00:00" to "${d}T23:59:59"
+        }
+        "yesterday" -> {
+            cal.add(Calendar.DATE, -1)
+            val d = isoDate(cal)
+            "${d}T00:00:00" to "${d}T23:59:59"
+        }
+        "this_week" -> {
+            val dow = cal.get(Calendar.DAY_OF_WEEK)
+            val daysToMon = (dow - Calendar.MONDAY + 7) % 7
+            cal.add(Calendar.DATE, -daysToMon)
+            val from = isoDate(cal)
+            cal.add(Calendar.DATE, 6)
+            val to = isoDate(cal)
+            "${from}T00:00:00" to "${to}T23:59:59"
+        }
+        "last_week" -> {
+            val dow = cal.get(Calendar.DAY_OF_WEEK)
+            val daysToMon = (dow - Calendar.MONDAY + 7) % 7
+            cal.add(Calendar.DATE, -daysToMon - 7)
+            val from = isoDate(cal)
+            cal.add(Calendar.DATE, 6)
+            val to = isoDate(cal)
+            "${from}T00:00:00" to "${to}T23:59:59"
+        }
+        "this_month" -> {
+            val y = cal.get(Calendar.YEAR); val m = cal.get(Calendar.MONTH) + 1
+            val last = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+            "%04d-%02d-01T00:00:00".format(y, m) to "%04d-%02d-%02dT23:59:59".format(y, m, last)
+        }
+        "last_30d" -> {
+            val nowD = isoDate(cal)
+            cal.add(Calendar.DATE, -30)
+            val fromD = isoDate(cal)
+            "${fromD}T00:00:00" to "${nowD}T23:59:59"
+        }
+        "custom" -> {
+            (customFrom?.let { "${it}T00:00:00" }) to (customTo?.let { "${it}T23:59:59" })
+        }
+        else -> null to null  // "all"
+    }
+}
+
+private fun todayIso(): String = isoDate(Calendar.getInstance())
+
+/** Pick "upcoming" (next-task-first) for forward windows, "recent" for past-only windows. */
+private fun sortFor(dateRange: String, customTo: String?): String = when (dateRange) {
+    "yesterday", "last_week" -> "recent"
+    "custom" -> if (customTo != null && customTo < todayIso()) "recent" else "upcoming"
+    else -> "upcoming"
+}
+
+/** Humanize an ISO datetime: null → "Unscheduled", today → "Today, 2:00 PM", etc. */
+@SuppressLint("SimpleDateFormat")
+private fun humanizeScheduled(iso: String?): String {
+    if (iso.isNullOrBlank()) return "Unscheduled"
+    val date = try { java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").parse(iso) }
+        catch (_: Exception) { try { java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(iso) } catch (_: Exception) { null } }
+        ?: return "Unscheduled"
+    val tdy = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }
+    val schedDay = Calendar.getInstance().apply {
+        time = date
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }
+    val daysDiff = ((schedDay.timeInMillis - tdy.timeInMillis) / (1000L * 60 * 60 * 24)).toInt()
+    val timeFmt = java.text.SimpleDateFormat("h:mm a").format(date)
+    return when {
+        daysDiff == 0 -> "Today, $timeFmt"
+        daysDiff == 1 -> "Tomorrow, $timeFmt"
+        daysDiff in -6..6 -> "${java.text.SimpleDateFormat("EEE, MMM d").format(date)} · $timeFmt"
+        else -> "${java.text.SimpleDateFormat("MMM d, yyyy").format(date)} · $timeFmt"
+    }
+}
+
 // ── Job List ───────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewModel = hiltViewModel()) {
     val state by vm.state.collectAsState()
     var search       by remember { mutableStateOf("") }
-    var activeFilter by remember { mutableStateOf<String?>(null) }
-    var dateRange    by remember { mutableStateOf("week") }   // today | week | month | all
+    var dateRange    by remember { mutableStateOf("today") }
+    var customFrom   by remember { mutableStateOf<String?>(null) }
+    var customTo     by remember { mutableStateOf<String?>(null) }
+    var selectedStatuses by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedTechIds  by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var partnerView      by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
+    var showCustomDateDialog by remember { mutableStateOf(false) }
     val snack = remember { SnackbarHostState() }
     var resumeKey by remember { mutableIntStateOf(0) }
 
-    val statusFilters = listOf("scheduled", "en_route", "in_progress", "holding", "completed", "cancelled", "deleted")
-    val dateLabels    = listOf("Today" to "today", "This Week" to "week", "This Month" to "month", "All" to "all")
-    var showPartnerView by remember { mutableStateOf(false) }
+    val dateChips = listOf(
+        "today" to "Today",
+        "yesterday" to "Yesterday",
+        "this_week" to "This Week",
+        "last_week" to "Last Week",
+        "this_month" to "This Month",
+        "last_30d" to "Last 30d",
+        "custom" to "Custom",
+        "all" to "All"
+    )
+    val activeFilterCount = selectedStatuses.size + selectedTechIds.size + (if (partnerView) 1 else 0)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -673,48 +804,25 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    LaunchedEffect(Unit) { vm.loadTechs() }
+
     val pullState = rememberPullToRefreshState()
-    if (pullState.isRefreshing) { LaunchedEffect(Unit) { vm.load(activeFilter) } }
+
+    val doLoad: () -> Unit = {
+        val (from, to) = dateBoundsFor(dateRange, customFrom, customTo)
+        vm.load(
+            statuses     = selectedStatuses.toList().takeIf { it.isNotEmpty() },
+            techIds      = selectedTechIds.toList().takeIf { it.isNotEmpty() },
+            activityFrom = from,
+            activityTo   = to,
+            partnerView  = partnerView,
+            sort         = sortFor(dateRange, customTo)
+        )
+    }
+    LaunchedEffect(dateRange, customFrom, customTo, selectedStatuses, selectedTechIds, partnerView, resumeKey) { doLoad() }
+    if (pullState.isRefreshing) { LaunchedEffect(Unit) { doLoad() } }
     LaunchedEffect(state.loading) { if (!state.loading && pullState.isRefreshing) pullState.endRefresh() }
 
-    // Build ISO date bounds for the selected range
-    fun dateBounds(): Pair<String?, String?> {
-        val cal = Calendar.getInstance()
-        return when (dateRange) {
-            "today" -> {
-                val d = "%04d-%02d-%02d".format(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
-                Pair("${d}T00:00:00", "${d}T23:59:59")
-            }
-            "week"  -> {
-                // Rewind to Monday
-                val dow = cal.get(Calendar.DAY_OF_WEEK)
-                val daysToMon = (dow - Calendar.MONDAY + 7) % 7
-                cal.add(Calendar.DATE, -daysToMon)
-                val from = "%04d-%02d-%02d".format(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
-                cal.add(Calendar.DATE, 6)
-                val to = "%04d-%02d-%02d".format(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
-                Pair("${from}T00:00:00", "${to}T23:59:59")
-            }
-            "month" -> {
-                val y = cal.get(Calendar.YEAR); val m = cal.get(Calendar.MONTH) + 1
-                val last = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                Pair("%04d-%02d-01T00:00:00".format(y, m), "%04d-%02d-%02dT23:59:59".format(y, m, last))
-            }
-            else    -> Pair(null, null)
-        }
-    }
-
-    // Reload when status filter, date range, partner view, or screen resumes
-    LaunchedEffect(activeFilter, dateRange, showPartnerView, resumeKey) {
-        if (showPartnerView) {
-            vm.loadPartnerJobs()
-        } else {
-            val (from, to) = if (activeFilter == "deleted") Pair(null, null) else dateBounds()
-            vm.load(activeFilter, null, from, to)
-        }
-    }
-
-    // Client-side search over already-loaded list
     val displayedJobs = remember(state.jobs, search) {
         if (search.isBlank()) state.jobs
         else state.jobs.filter { job ->
@@ -736,17 +844,29 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
                     actions = { IconButton(onClick = onNewJob) { Icon(Icons.Default.Add, null) } }
                 )
 
-                // ── Date range chips ──────────────────────────────────────
-                if (activeFilter != "deleted") {
+                // Date chip row + filter dropdown trigger
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     androidx.compose.foundation.lazy.LazyRow(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                        Modifier.weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(dateLabels) { (label, key) ->
+                        items(dateChips) { (key, label) ->
+                            val displayLabel = if (key == "custom" && customFrom != null && customTo != null)
+                                "$customFrom → $customTo" else label
                             FilterChip(
                                 selected = dateRange == key,
-                                onClick  = { dateRange = key },
-                                label    = { Text(label) },
+                                onClick  = {
+                                    if (key == "custom") {
+                                        showCustomDateDialog = true
+                                    } else {
+                                        dateRange = key
+                                        customFrom = null; customTo = null
+                                    }
+                                },
+                                label    = { Text(displayLabel) },
                                 colors   = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AppColors.Blue,
                                     selectedLabelColor     = Color.White
@@ -754,46 +874,34 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
                             )
                         }
                     }
+                    Box {
+                        IconButton(onClick = { showFilterDialog = true }) {
+                            Icon(Icons.Default.FilterList, contentDescription = "Filters")
+                        }
+                        if (activeFilterCount > 0) {
+                            Surface(
+                                color = AppColors.Blue,
+                                shape = CircleShape,
+                                modifier = Modifier.align(Alignment.TopEnd).offset(x = (-2).dp, y = 4.dp).size(16.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        activeFilterCount.toString(),
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // ── Search bar ────────────────────────────────────────────
                 SearchField(
                     value    = search,
                     onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
                 )
-
-                // ── Status filter chips ───────────────────────────────────
-                androidx.compose.foundation.lazy.LazyRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(statusFilters) { f ->
-                        FilterChip(
-                            selected = activeFilter == f && !showPartnerView,
-                            onClick  = {
-                                showPartnerView = false
-                                activeFilter = if (activeFilter == f) null else f
-                            },
-                            label    = { Text(if (f == "en_route") "En Route" else f.replace("_", " ").replaceFirstChar { it.uppercase() }) }
-                        )
-                    }
-                    item {
-                        FilterChip(
-                            selected = showPartnerView,
-                            onClick  = {
-                                showPartnerView = !showPartnerView
-                                if (showPartnerView) activeFilter = null
-                            },
-                            label    = { Text("Received") },
-                            leadingIcon = if (showPartnerView) {{ Icon(Icons.Default.Inbox, null, Modifier.size(16.dp)) }} else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = AppColors.Green,
-                                selectedLabelColor     = Color.White
-                            )
-                        )
-                    }
-                }
             }
         },
         floatingActionButton = {
@@ -803,56 +911,29 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
         Box(Modifier.fillMaxSize().padding(padding).nestedScroll(pullState.nestedScrollConnection)) {
             when {
                 state.loading -> LoadingView()
-                state.error != null -> ErrorView(state.error!!, onRetry = { vm.load() })
-                displayedJobs.isEmpty() -> EmptyView(
-                    if (activeFilter == "deleted") "No archived jobs" else "No jobs found",
-                    Icons.Default.Work
-                )
+                state.error != null -> ErrorView(state.error!!, onRetry = { doLoad() })
+                displayedJobs.isEmpty() -> Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.WorkOutline, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                    Spacer(Modifier.height(16.dp))
+                    Text("No jobs found", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Try a different filter or date range", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 else -> LazyColumn(
                     Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(displayedJobs, key = { it.id }) { job ->
-                        val isDeleted = job.status == "deleted"
-                        val sc = if (isDeleted) AppColors.Red else AppColors.jobStatus(job.status)
-                        Card(
-                            onClick = { if (!isDeleted) onJob(job.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape    = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(Modifier.fillMaxWidth()) {
-                                AccentBar(sc)
-                                Column(Modifier.padding(12.dp).weight(1f)) {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text(job.job_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        if (isDeleted)
-                                            StatusBadge("Archived", AppColors.Red, small = true)
-                                        else
-                                            PriorityBadge(job.priority)
-                                    }
-                                    Text(job.title, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                    if (job.sent_by_company_name != null) {
-                                        Text("Received from ${job.sent_by_company_name}", style = MaterialTheme.typography.labelSmall, color = AppColors.Green)
-                                    } else if (job.sent_to_company_name != null) {
-                                        Text("Sent to ${job.sent_to_company_name}", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue)
-                                    }
-                                    Text(job.customerName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(Modifier.height(4.dp))
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        if (!isDeleted) {
-                                            StatusBadge(if (job.status == "holding") "Holding — Deposit Collected" else job.status.replace("_", " ").replaceFirstChar { it.uppercase() }, sc, small = true)
-                                            job.techName?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                        } else {
-                                            TextButton(
-                                                onClick = { vm.restoreJob(job.id) },
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                                            ) { Text("Restore", color = AppColors.Blue, style = MaterialTheme.typography.labelMedium) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        JobListCard(
+                            job       = job,
+                            onClick   = { if (job.status != "deleted") onJob(job.id) },
+                            onRestore = { vm.restoreJob(job.id) }
+                        )
                     }
                     item { Spacer(Modifier.height(80.dp)) }
                 }
@@ -860,6 +941,317 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
             PullToRefreshContainer(state = pullState, modifier = Modifier.align(Alignment.TopCenter))
         }
     }
+
+    if (showCustomDateDialog) {
+        CustomDateRangeDialog(
+            initialFrom = customFrom,
+            initialTo   = customTo,
+            onApply     = { f, t ->
+                customFrom = f; customTo = t; dateRange = "custom"
+                showCustomDateDialog = false
+            },
+            onDismiss   = { showCustomDateDialog = false }
+        )
+    }
+    if (showFilterDialog) {
+        StatusTechFilterDialog(
+            techs            = state.techs,
+            initialStatuses  = selectedStatuses,
+            initialTechIds   = selectedTechIds,
+            initialPartnerView = partnerView,
+            onApply = { ss, st, pv ->
+                selectedStatuses = ss; selectedTechIds = st; partnerView = pv
+                showFilterDialog = false
+            },
+            onClear = {
+                selectedStatuses = emptySet(); selectedTechIds = emptySet(); partnerView = false
+                showFilterDialog = false
+            },
+            onDismiss = { showFilterDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun JobListCard(job: Job, onClick: () -> Unit, onRestore: () -> Unit) {
+    val isDeleted = job.status == "deleted"
+    val sc = if (isDeleted) AppColors.Red else AppColors.jobStatus(job.status)
+    Card(
+        onClick   = { if (!isDeleted) onClick() },
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            AccentBar(sc)
+            Column(Modifier.padding(14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (job.sent_by_company_name != null) {
+                    Surface(color = AppColors.Green.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Inbox, null, Modifier.size(12.dp), tint = AppColors.Green)
+                            Spacer(Modifier.width(4.dp))
+                            Text("From ${job.sent_by_company_name}", style = MaterialTheme.typography.labelSmall, color = AppColors.Green, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                } else if (job.sent_to_company_name != null) {
+                    Surface(color = AppColors.Blue.copy(alpha = 0.10f), shape = RoundedCornerShape(8.dp)) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Sent to ${job.sent_to_company_name}", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                // Row 1: number + type chip + (priority/archived right)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(job.job_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Surface(color = AppColors.Blue.copy(alpha = 0.10f), shape = RoundedCornerShape(6.dp)) {
+                        Text(
+                            job.type.replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.Blue,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    when {
+                        isDeleted -> StatusBadge("Archived", AppColors.Red, small = true)
+                        job.priority == "urgent" || job.priority == "high" -> PriorityBadge(job.priority)
+                    }
+                }
+
+                // Row 2: customer name + member badge
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        job.customerName,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1
+                    )
+                    if (job.membership_id != null) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(color = AppColors.Gold.copy(alpha = 0.18f), shape = RoundedCornerShape(8.dp)) {
+                            Text(
+                                "⭐ Member",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Gold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Row 3: address (only if present)
+                val addrParts = listOfNotNull(
+                    job.address?.takeIf { it.isNotBlank() },
+                    job.city?.takeIf { it.isNotBlank() }
+                )
+                if (addrParts.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOn, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            addrParts.joinToString(", "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Row 4: scheduled / status / tech (or Restore if deleted)
+                if (isDeleted) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(
+                            onClick = onRestore,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) { Text("Restore", color = AppColors.Blue, style = MaterialTheme.typography.labelMedium) }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CalendarMonth, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(4.dp))
+                        val schedText = humanizeScheduled(job.scheduled_start)
+                        Text(
+                            schedText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (schedText == "Unscheduled")
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(sc))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (job.status == "holding") "Holding" else job.status.replace("_", " ").replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = sc,
+                            fontWeight = FontWeight.Medium
+                        )
+                        job.techName?.let {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomDateRangeDialog(
+    initialFrom: String?,
+    initialTo: String?,
+    onApply: (String?, String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var fromDate by remember { mutableStateOf(initialFrom) }
+    var toDate   by remember { mutableStateOf(initialTo) }
+    var pickerTarget by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom Date Range") },
+        text = {
+            Column {
+                OutlinedButton(onClick = { pickerTarget = "from" }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("From: ${fromDate ?: "Pick start date"}")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { pickerTarget = "to" }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("To: ${toDate ?: "Pick end date"}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (fromDate != null && toDate != null) onApply(fromDate, toDate) },
+                enabled = fromDate != null && toDate != null
+            ) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+
+    if (pickerTarget != null) {
+        val state = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { pickerTarget = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
+                        val iso = "%04d-%02d-%02d".format(
+                            cal.get(Calendar.YEAR),
+                            cal.get(Calendar.MONTH) + 1,
+                            cal.get(Calendar.DAY_OF_MONTH)
+                        )
+                        if (pickerTarget == "from") fromDate = iso else toDate = iso
+                    }
+                    pickerTarget = null
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { pickerTarget = null }) { Text("Cancel") } }
+        ) { DatePicker(state = state) }
+    }
+}
+
+@Composable
+private fun StatusTechFilterDialog(
+    techs: List<User>,
+    initialStatuses: Set<String>,
+    initialTechIds: Set<String>,
+    initialPartnerView: Boolean,
+    onApply: (Set<String>, Set<String>, Boolean) -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var ss by remember { mutableStateOf(initialStatuses) }
+    var st by remember { mutableStateOf(initialTechIds) }
+    var pv by remember { mutableStateOf(initialPartnerView) }
+
+    val statusOptions = listOf(
+        "scheduled" to "Scheduled",
+        "en_route" to "En Route",
+        "in_progress" to "In Progress",
+        "holding" to "Holding",
+        "completed" to "Completed",
+        "cancelled" to "Cancelled",
+        "deleted" to "Deleted"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filters") },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                SectionLabel("STATUS")
+                statusOptions.forEach { (key, label) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { ss = if (ss.contains(key)) ss - key else ss + key },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = ss.contains(key), onCheckedChange = { c -> ss = if (c) ss + key else ss - key })
+                        val sc = if (key == "deleted") AppColors.Red else AppColors.jobStatus(key)
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(sc))
+                        Spacer(Modifier.width(6.dp))
+                        Text(label)
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().clickable { pv = !pv },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = pv, onCheckedChange = { pv = it })
+                    Icon(Icons.Default.Inbox, null, Modifier.size(14.dp), tint = AppColors.Green)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Received (from partners)")
+                }
+                Spacer(Modifier.height(12.dp))
+                SectionLabel("TECHNICIAN")
+                if (techs.isEmpty()) {
+                    Text(
+                        "No technicians",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    techs.forEach { t ->
+                        val name = "${t.first_name} ${t.last_name}".trim().ifBlank { t.email.ifBlank { t.id.take(8) } }
+                        Row(
+                            Modifier.fillMaxWidth().clickable { st = if (st.contains(t.id)) st - t.id else st + t.id },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = st.contains(t.id), onCheckedChange = { c -> st = if (c) st + t.id else st - t.id })
+                            Text(name)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onApply(ss, st, pv) }) { Text("Apply") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onClear) { Text("Clear All") }
+                Spacer(Modifier.width(4.dp))
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
 }
 
 // ── Job Detail ─────────────────────────────────────────────────────────────

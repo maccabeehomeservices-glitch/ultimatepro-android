@@ -201,10 +201,13 @@ class CrmRepository @Inject constructor(
 
     suspend fun getJobs(
         status: String? = null, techId: String? = null, custId: String? = null,
-        from: String? = null, to: String? = null, priority: String? = null,
-        search: String? = null, page: Int = 1, includeAllStatuses: Boolean = false,
+        from: String? = null, to: String? = null,
+        activityFrom: String? = null, activityTo: String? = null,
+        priority: String? = null, search: String? = null,
+        sort: String? = null, page: Int = 1, includeAllStatuses: Boolean = false,
         partnerView: Boolean = false
-    ) = call { api.getJobs(status, techId, custId, from, to, priority, search, page,
+    ) = call { api.getJobs(status, techId, custId, from, to, activityFrom, activityTo,
+        priority, search, sort, page,
         includeAllStatuses = if (includeAllStatuses) true else null,
         partnerView = if (partnerView) true else null) }
 
