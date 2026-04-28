@@ -35,14 +35,16 @@ private val DarkOnSurfaceVariant  = Color(0xFF8899AA)
 private val DarkBorder            = Color(0xFF1E3A5F)
 private val DarkError             = Color(0xFFEF4444)
 
-// ── Status colors (same in both themes — always vibrant) ──────────────────────
-val StatusScheduled   = Color(0xFF7C3AED)
-val StatusEnRoute     = Color(0xFFF97316)
-val StatusInProgress  = Color(0xFF0EA5E9)
-val StatusCompleted   = Color(0xFF16A34A)
-val StatusUnscheduled = Color(0xFF6B7280)
-val StatusCancelled   = Color(0xFFDC2626)
-val StatusDeleted     = Color(0xFF9CA3AF)
+// ── Status colors (canonical — must match ui-design-system.md §1) ─────────────
+val StatusUnscheduled = Color(0xFF6B7280)  // Slate
+val StatusScheduled   = Color(0xFF2563EB)  // Blue
+val StatusEnRoute     = Color(0xFFF97316)  // Orange
+val StatusInProgress  = Color(0xFF0EA5E9)  // Sky
+val StatusHolding     = Color(0xFFD97706)  // Amber
+val StatusCompleted   = Color(0xFF16A34A)  // Green
+val StatusCancelled   = Color(0xFFDC2626)  // Red
+val StatusDeleted     = Color(0xFF9CA3AF)  // Light gray
+@Deprecated("Legacy: 'on_hold' is no longer a live job status; rows migrated to 'holding'")
 val StatusOnHold      = Color(0xFF0891B2)
 
 // ── Brand / accent colors (used as fixed accent tints across the app) ─────────
@@ -58,14 +60,13 @@ object AppColors {
     val Slate     = Color(0xFF6B7280)
     val Gold      = Color(0xFFF59E0B)
 
-    fun jobStatus(status: String): Color = when (status) {
-        "completed"   -> StatusCompleted
-        "in_progress" -> StatusInProgress
-        "en_route"    -> StatusEnRoute
+    fun jobStatus(status: String?): Color = when (status) {
         "scheduled"   -> StatusScheduled
+        "en_route"    -> StatusEnRoute
+        "in_progress" -> StatusInProgress
+        "holding"     -> StatusHolding
+        "completed"   -> StatusCompleted
         "cancelled"   -> StatusCancelled
-        "on_hold"     -> StatusOnHold
-        "holding"     -> Gold
         "deleted"     -> StatusDeleted
         else          -> StatusUnscheduled
     }

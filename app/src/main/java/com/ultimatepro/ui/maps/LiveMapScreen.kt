@@ -43,15 +43,14 @@ import javax.inject.Inject
 // Geocoded job ready to display on the map
 data class JobMapPin(val job: Job, val latLng: LatLng)
 
-// Map job status → BitmapDescriptorFactory hue matching AppColors.jobStatus()
-// scheduled=Purple→HUE_VIOLET, en_route=Orange→HUE_ORANGE, in_progress=Blue→HUE_AZURE,
-// unscheduled=Gray→HUE_CYAN (closest neutral), on_hold=Slate→HUE_CYAN
+// Map job status → BitmapDescriptorFactory hue matching AppColors.jobStatus().
+// Canonical palette per skills/ui-design-system.md §1.
 fun jobStatusHue(status: String): Float = when (status) {
-    "scheduled"   -> BitmapDescriptorFactory.HUE_VIOLET  // Purple chip
-    "en_route"    -> BitmapDescriptorFactory.HUE_ORANGE  // Orange chip
-    "in_progress" -> BitmapDescriptorFactory.HUE_AZURE   // BlueLight chip
-    "on_hold"     -> BitmapDescriptorFactory.HUE_CYAN    // Slate chip
-    else          -> 200f                                 // Muted blue-gray for unscheduled
+    "scheduled"   -> BitmapDescriptorFactory.HUE_BLUE    // #2563EB
+    "en_route"    -> BitmapDescriptorFactory.HUE_ORANGE  // #F97316
+    "in_progress" -> BitmapDescriptorFactory.HUE_AZURE   // #0EA5E9 (sky)
+    "holding"     -> BitmapDescriptorFactory.HUE_YELLOW  // #D97706 (amber)
+    else          -> 200f                                 // Muted blue-gray for unscheduled / unknown
 }
 
 @HiltViewModel
