@@ -1863,7 +1863,7 @@ fun JobDetailScreen(
     }
     // Status bottom sheet
     if (showStatus && job != null) {
-        val statuses = listOf("unscheduled", "scheduled", "en_route", "in_progress", "on_hold", "completed", "cancelled")
+        val statuses = listOf("unscheduled", "scheduled", "en_route", "in_progress", "holding", "completed", "cancelled")
         ModalBottomSheet(onDismissRequest = { showStatus = false }) {
             SheetHandle()
             Text("Update Status", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
