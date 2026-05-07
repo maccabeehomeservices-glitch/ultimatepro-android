@@ -79,6 +79,10 @@ data class EditableLineItem(
     )
 }
 
+// GBB tier-count policy (mirrors web Session 3)
+private const val MAX_TIERS = 5
+private const val MIN_TIERS = 1
+
 // ─── GBB tier (edit-time) ─────────────────────────────────────────────────
 data class EditableTier(
     val id: String = UUID.randomUUID().toString(),
@@ -109,10 +113,12 @@ data class EstimateBuildState(
     val depositAmount: Double = 0.0,
     // GBB
     val presentationMode: String = "standard",
+    // Default 2 tiers for new GBB estimates (web parity, Session 3).
+    // Existing GBB estimates load tiers via getEstimateTiers — this default
+    // is only used when toggling into GBB mode for a never-saved estimate.
     val tiers: List<EditableTier> = listOf(
-        EditableTier(label = "Good"),
-        EditableTier(label = "Better"),
-        EditableTier(label = "Best")
+        EditableTier(label = "Tier 1"),
+        EditableTier(label = "Tier 2")
     ),
     val selectedGbbTab: Int = 0
 )
@@ -217,6 +223,41 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
     fun addTierLineItem(tierIdx: Int, li: EditableLineItem) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems + li) else t }) } }
     fun removeTierLineItem(tierIdx: Int, itemId: String) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems.filter { l -> l.id != itemId }) else t }) } }
     fun updateTierLineItem(tierIdx: Int, li: EditableLineItem) { _s.update { st -> st.copy(tiers = st.tiers.mapIndexed { i, t -> if (i == tierIdx) t.copy(lineItems = t.lineItems.map { l -> if (l.id == li.id) li else l }) else t }) } }
+    fun addTier() {
+        _s.update { st ->
+            if (st.tiers.size >= MAX_TIERS) return@update st
+            val n = st.tiers.size + 1
+            st.copy(
+                tiers = st.tiers + EditableTier(label = "Tier $n"),
+                selectedGbbTab = st.tiers.size  // jump to new tier (which becomes index = old size)
+            )
+        }
+    }
+
+    fun removeTier(idx: Int) {
+        _s.update { st ->
+            if (st.tiers.size <= MIN_TIERS) return@update st
+            val next = st.tiers.filterIndexed { i, _ -> i != idx }
+            val newSelected = st.selectedGbbTab.coerceAtMost(next.size - 1).coerceAtLeast(0)
+            st.copy(tiers = next, selectedGbbTab = newSelected)
+        }
+    }
+
+    fun duplicateTier(idx: Int) {
+        _s.update { st ->
+            if (st.tiers.size >= MAX_TIERS) return@update st
+            val src = st.tiers.getOrNull(idx) ?: return@update st
+            // Fresh ids on tier + every line item so removeTierLineItem keys
+            // don't collide between source and copy.
+            val copy = src.copy(
+                id = UUID.randomUUID().toString(),
+                label = "${src.label} (Copy)",
+                lineItems = src.lineItems.map { it.copy(id = UUID.randomUUID().toString()) }
+            )
+            st.copy(tiers = st.tiers + copy, selectedGbbTab = st.tiers.size)
+        }
+    }
+
     fun addFromPricebookToTier(tierIdx: Int, entries: Collection<PickedEntry>) {
         _s.update { st ->
             st.copy(tiers = st.tiers.mapIndexed { i, t ->
@@ -1087,12 +1128,46 @@ fun EstimateBuildScreen(
                             text = { Text(label, fontWeight = FontWeight.SemiBold) }
                         )
                     }
+                    if (st.tiers.size < MAX_TIERS) {
+                        Tab(
+                            selected = false,
+                            onClick = { vm.addTier() },
+                            text = { Text("+ Add Option", color = AppColors.Blue, fontWeight = FontWeight.SemiBold) }
+                        )
+                    }
                 }
                 val tier = st.tiers[st.selectedGbbTab]
                 val tIdx = st.selectedGbbTab
+                var showRemoveTierConfirm by remember { mutableStateOf(false) }
                 // Tier label and description
                 CRMCard {
-                    SectionLabel("TIER NAME & DESCRIPTION")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SectionLabel("TIER NAME & DESCRIPTION")
+                        Row {
+                            if (st.tiers.size < MAX_TIERS) {
+                                IconButton(
+                                    onClick = { vm.duplicateTier(tIdx) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, "Duplicate this option",
+                                        Modifier.size(18.dp), tint = AppColors.Blue)
+                                }
+                            }
+                            if (st.tiers.size > MIN_TIERS) {
+                                IconButton(
+                                    onClick = { showRemoveTierConfirm = true },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, "Remove this option",
+                                        Modifier.size(18.dp), tint = AppColors.Red)
+                                }
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = tier.label, onValueChange = { vm.updateTierLabel(tIdx, it) },
                         label = { Text("Tier Name (e.g. Good, Better, Best)") },
@@ -1103,6 +1178,22 @@ fun EstimateBuildScreen(
                         value = tier.description, onValueChange = { vm.updateTierDescription(tIdx, it) },
                         label = { Text("Description (optional)") },
                         minLines = 2, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)
+                    )
+                }
+                if (showRemoveTierConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showRemoveTierConfirm = false },
+                        title = { Text("Remove this option?") },
+                        text = { Text("\"${tier.label.ifBlank { "Tier ${tIdx + 1}" }}\" and all its line items will be removed. You can undo by tapping Cancel before saving.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                vm.removeTier(tIdx)
+                                showRemoveTierConfirm = false
+                            }) { Text("Remove", color = AppColors.Red, fontWeight = FontWeight.SemiBold) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showRemoveTierConfirm = false }) { Text("Cancel") }
+                        }
                     )
                 }
                 val tierServices  = tier.lineItems.filter { it.item_type in listOf("service","labor") }
