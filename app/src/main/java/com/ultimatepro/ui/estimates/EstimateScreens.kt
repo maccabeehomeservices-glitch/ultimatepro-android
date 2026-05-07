@@ -161,7 +161,7 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
                             pricebook_id = li.pricebook_id, price_overridden = li.price_overridden)
                     }
                     _s.update { it.copy(
-                        lineItems = est.line_items.map(toEditable),
+                        lineItems = est.line_items.orEmpty().map(toEditable),
                         notes = est.notes ?: "", terms = est.terms ?: "",
                         depositRequired = est.deposit_required,
                         depositType = est.deposit_type,
@@ -812,7 +812,7 @@ fun EstimateDetailScreen(
                         }
                     }
                 }
-                if (e.isGbb && e.tiers.isNotEmpty()) {
+                if (e.isGbb && !e.tiers.isNullOrEmpty()) {
                     // GBB: show tier cards
                     item {
                         CRMCard {
@@ -823,7 +823,7 @@ fun EstimateDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    items(e.tiers, key = { it.id }) { tier ->
+                    items(e.tiers.orEmpty(), key = { it.id }) { tier ->
                         val isSelected = tier.id == e.selectedTierId
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -882,9 +882,10 @@ fun EstimateDetailScreen(
                         }
                     }
                 } else {
-                    val svcs = e.line_items.filter { it.item_type in listOf("service","labor") }
-                    val mats = e.line_items.filter { it.item_type == "material" }
-                    val disc = e.line_items.filter { it.item_type == "discount" }
+                    val items = e.line_items.orEmpty()
+                    val svcs = items.filter { it.item_type in listOf("service","labor") }
+                    val mats = items.filter { it.item_type == "material" }
+                    val disc = items.filter { it.item_type == "discount" }
                     if (svcs.isNotEmpty()) item { LineItemsCard("SERVICE", svcs) }
                     if (mats.isNotEmpty()) item { LineItemsCard("MATERIALS", mats) }
                     if (disc.isNotEmpty()) item { CRMCard { SectionLabel("DISCOUNTS"); disc.forEach { li -> Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(li.name, fontWeight = FontWeight.Medium); Text("-${formatMoney(li.quantity * li.unit_price)}", color = AppColors.Orange, fontWeight = FontWeight.SemiBold) } } } }
@@ -1500,7 +1501,7 @@ fun PresentTiersScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                items(e.tiers, key = { it.id }) { tier ->
+                items(e.tiers.orEmpty(), key = { it.id }) { tier ->
                     val isSelected = tier.id == selectedId
                     Card(
                         onClick = { selectedId = tier.id },

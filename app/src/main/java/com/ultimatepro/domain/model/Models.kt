@@ -343,9 +343,15 @@ data class Estimate(
     val pdf_url: String? = null,
     val customer_signature: String? = null,
     val customer_signature_date: String? = null,
-    val before_photos: List<String> = emptyList(),
-    val after_photos: List<String> = emptyList(),
-    val line_items: List<LineItem> = emptyList(),
+    // List fields are nullable because Gson uses sun.misc.Unsafe to
+    // bypass Kotlin constructor defaults. When the backend response
+    // omits a key (e.g. estimates table has no `tiers`/`before_photos`/
+    // `after_photos` columns) Gson leaves the field as null, then
+    // .copy() crashes with "Parameter specified as non-null is null".
+    // Reads coerce via ?: emptyList().
+    val before_photos: List<String>? = null,
+    val after_photos: List<String>? = null,
+    val line_items: List<LineItem>? = null,
     val cust_first: String? = null,
     val cust_last: String? = null,
     val cust_email: String? = null,
@@ -362,7 +368,7 @@ data class Estimate(
     val deposit_payment_id: String? = null,
     @SerializedName("presentation_mode") val presentationMode: String = "standard",
     @SerializedName("selected_tier_id")  val selectedTierId: String? = null,
-    val tiers: List<EstimateTier> = emptyList(),
+    val tiers: List<EstimateTier>? = null,
     val qbo_id: String? = null,
     val created_at: String? = null
 ) : Parcelable {
@@ -397,8 +403,10 @@ data class Invoice(
     val customer_signature: String? = null,
     val customer_signature_date: String? = null,
     val payment_method: String? = null,
-    val before_photos: List<String> = emptyList(),
-    val after_photos: List<String> = emptyList(),
+    // Nullable because the invoices table has no before_photos/after_photos
+    // columns; Gson leaves these null when the API response omits them.
+    val before_photos: List<String>? = null,
+    val after_photos: List<String>? = null,
     val receipt_sent: Boolean = false,
     val line_items: List<LineItem> = emptyList(),
     val payments: List<Payment> = emptyList(),
