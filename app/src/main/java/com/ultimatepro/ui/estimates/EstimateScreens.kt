@@ -853,27 +853,39 @@ fun EstimateDetailScreen(
                                 Spacer(Modifier.height(8.dp))
                                 val tierSvcs = tier.lineItems.filter { it.item_type in listOf("service","labor") }
                                 val tierMats = tier.lineItems.filter { it.item_type == "material" }
+                                val tierDisc = tier.lineItems.filter { it.item_type == "discount" }
                                 if (tierSvcs.isNotEmpty()) {
                                     Text("Services", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Bold)
-                                    tierSvcs.take(3).forEach { li ->
-                                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(li.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                            Text(formatMoney(li.total), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                    if (tierSvcs.size > 3) Text("+${tierSvcs.size - 3} more…", style = MaterialTheme.typography.bodySmall, color = AppColors.Blue)
+                                    tierSvcs.forEach { li -> TierDetailItemRow(li) }
                                 }
                                 if (tierMats.isNotEmpty()) {
                                     Spacer(Modifier.height(4.dp))
                                     Text("Materials", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                    tierMats.take(3).forEach { li ->
-                                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(li.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                            Text(formatMoney(li.total), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
+                                    tierMats.forEach { li -> TierDetailItemRow(li) }
+                                }
+                                if (tierDisc.isNotEmpty()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("Discounts", style = MaterialTheme.typography.labelSmall, color = AppColors.Orange, fontWeight = FontWeight.Bold)
+                                    tierDisc.forEach { li -> TierDetailItemRow(li, isDiscount = true) }
                                 }
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Subtotal", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatMoney(tier.subtotal), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                if (tier.discountTotal > 0.0) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Discount", style = MaterialTheme.typography.bodyMedium, color = AppColors.Orange)
+                                        Text("-${formatMoney(tier.discountTotal)}", style = MaterialTheme.typography.bodyMedium, color = AppColors.Orange)
+                                    }
+                                }
+                                if (tier.taxTotal > 0.0) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Tax", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(formatMoney(tier.taxTotal), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                                Spacer(Modifier.height(4.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("Total", fontWeight = FontWeight.Bold)
                                     Text(formatMoney(tier.total), fontWeight = FontWeight.Bold, color = AppColors.Blue, style = MaterialTheme.typography.titleSmall)
@@ -1335,6 +1347,50 @@ fun EstimateBuildScreen(
             if (isGbb) vm.addTierLineItem(st.selectedGbbTab, li) else vm.addLineItem(li)
             showDiscount = false
         })
+    }
+}
+
+// Detail-screen tier line item row. Mirrors web TierCard fidelity:
+// thumbnail (left), name + description + SKU + qty x unit_price (middle),
+// line total (right). Read-only. The build/edit screen uses
+// EditableLineItemRow with QtyStepperRow + edit fields and is unrelated.
+@Composable
+private fun TierDetailItemRow(li: LineItem, isDiscount: Boolean = false) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        if (!li.image_url.isNullOrBlank()) {
+            AsyncImage(
+                model = li.image_url,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(li.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            li.description?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            li.sku?.takeIf { it.isNotBlank() }?.let {
+                Text("SKU: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(
+                "${formatQty(li.quantity)} × ${formatMoney(li.unit_price)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        // Prefer the persisted total when present; fall back to qty x price.
+        val displayTotal = if (li.total > 0.0) li.total else li.quantity * li.unit_price
+        Text(
+            (if (isDiscount) "-" else "") + formatMoney(displayTotal),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isDiscount) AppColors.Orange else androidx.compose.ui.graphics.Color.Unspecified
+        )
     }
 }
 
