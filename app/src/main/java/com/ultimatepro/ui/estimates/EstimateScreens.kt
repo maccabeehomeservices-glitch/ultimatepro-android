@@ -41,6 +41,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.*
@@ -170,18 +171,30 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
                     est.job_id?.let { loadJob(it) }
                     // Load existing tiers for GBB estimates
                     if (est.presentationMode == "gbb") {
-                        when (val tr = repo.getEstimateTiers(estimateId)) {
-                            is Result.Success -> {
-                                val editableTiers = tr.data.map { t ->
-                                    EditableTier(id = t.id, label = t.tierLabel,
-                                        description = t.description ?: "",
-                                        lineItems = t.lineItems.map(toEditable))
+                        val crashlytics = FirebaseCrashlytics.getInstance()
+                        crashlytics.log("GBB build-load: estimate=$estimateId presentation_mode=gbb")
+                        try {
+                            when (val tr = repo.getEstimateTiers(estimateId)) {
+                                is Result.Success -> {
+                                    val editableTiers = tr.data.map { t ->
+                                        EditableTier(id = t.id, label = t.tierLabel,
+                                            description = t.description ?: "",
+                                            lineItems = t.lineItems.map(toEditable))
+                                    }
+                                    crashlytics.log("GBB build-load OK: estimate=$estimateId tiers_count=${tr.data.size}")
+                                    if (editableTiers.isNotEmpty()) {
+                                        _s.update { it.copy(tiers = editableTiers) }
+                                    }
                                 }
-                                if (editableTiers.isNotEmpty()) {
-                                    _s.update { it.copy(tiers = editableTiers) }
+                                is Result.Error -> {
+                                    crashlytics.log("GBB build-load API ERROR: estimate=$estimateId msg=${tr.message}")
+                                    crashlytics.recordException(IllegalStateException("getEstimateTiers failed: ${tr.message}"))
                                 }
                             }
-                            else -> {}
+                        } catch (e: Exception) {
+                            crashlytics.log("GBB build-load THREW: estimate=$estimateId")
+                            crashlytics.recordException(e)
+                            throw e
                         }
                     }
                 }
@@ -339,11 +352,29 @@ class EstimateViewModel @Inject constructor(private val repo: CrmRepository) : V
                 is Result.Success -> {
                     var est = r.data
                     loadCustomer(est.customer_id)
-                    // Fetch tiers for GBB estimates
+                    // Fetch tiers for GBB estimates. The tap-crash on tablet
+                    // most likely originates from this branch (GBB-only data
+                    // path), so we log to Crashlytics on every entry/exit and
+                    // record any thrown exception with full stack trace.
                     if (est.presentationMode == "gbb") {
-                        when (val tr = repo.getEstimateTiers(id)) {
-                            is Result.Success -> est = est.copy(tiers = tr.data)
-                            else -> {}
+                        val crashlytics = FirebaseCrashlytics.getInstance()
+                        crashlytics.setCustomKey("last_estimate_id", id)
+                        crashlytics.log("GBB detail-load: estimate=$id estimate_number=${est.estimate_number}")
+                        try {
+                            when (val tr = repo.getEstimateTiers(id)) {
+                                is Result.Success -> {
+                                    est = est.copy(tiers = tr.data)
+                                    crashlytics.log("GBB detail-load OK: estimate=$id tiers_count=${tr.data.size} first_label=${tr.data.firstOrNull()?.tierLabel}")
+                                }
+                                is Result.Error -> {
+                                    crashlytics.log("GBB detail-load API ERROR: estimate=$id msg=${tr.message}")
+                                    crashlytics.recordException(IllegalStateException("getEstimateTiers failed: ${tr.message}"))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            crashlytics.log("GBB detail-load THREW: estimate=$id")
+                            crashlytics.recordException(e)
+                            throw e
                         }
                     }
                     _sel.value = est
