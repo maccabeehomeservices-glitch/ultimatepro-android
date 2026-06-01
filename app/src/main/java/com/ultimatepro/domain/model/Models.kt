@@ -210,6 +210,8 @@ data class Job(
     val zip: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
+    val job_timezone: String? = null,
+    val effective_timezone: String? = null,
     val tags: List<String> = emptyList(),
     val notes: String? = null,
     val internal_notes: String? = null,

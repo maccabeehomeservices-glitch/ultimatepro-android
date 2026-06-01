@@ -25,6 +25,7 @@ import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.ultimatepro.util.formatJobInstant
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1687,8 +1688,8 @@ fun JobDetailScreen(
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(formatDisplayDate(job.scheduled_start), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                            Text(formatDisplayTime(job.scheduled_start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d, yyyy"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                            Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a zzz"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -3204,6 +3205,8 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
     var city       by remember { mutableStateOf("") }
     var stateCode  by remember { mutableStateOf("") }
     var zip        by remember { mutableStateOf("") }
+    var lat        by remember { mutableStateOf<Double?>(null) }
+    var lng        by remember { mutableStateOf<Double?>(null) }
     var type       by remember { mutableStateOf("service") }
     var custName      by remember { mutableStateOf("") }
     var custPhone     by remember { mutableStateOf("") }
@@ -3312,16 +3315,12 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
         Log.d("DuplicateSheet", "doSaveNow called with customerId: $resolvedCustomerId (forced=$forceCustomerId)")
         vm.clearError()
         val nameParts = custName.trim().split(" ", limit = 2)
+        // TZ 3/3: send a naive wall-clock (YYYY-MM-DDTHH:mm) as scheduled_local + coords;
+        // the backend resolves the address zone and converts to a UTC instant (Path B).
+        // Date-only defaults to noon (mirrors web); blank date -> null (F2 preserved).
         val scheduled = when {
-            schedDate.isNotBlank() && schedTime.isNotBlank() -> "${schedDate}T${schedTime}:00"
-            schedDate.isNotBlank()                           -> "${schedDate}T00:00:00"
-            else -> {
-                val now = Calendar.getInstance()
-                "%04d-%02d-%02dT%02d:%02d:00".format(
-                    now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH),
-                    now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE)
-                )
-            }
+            schedDate.isBlank() -> null
+            else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
         }
         val srcLabel = buildString {
             if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
@@ -3337,7 +3336,9 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
                 "state"                to stateCode.ifBlank { null },
                 "zip"                  to zip.ifBlank { null },
                 "notes"                    to notes.ifBlank { null },
-                "scheduled_start"          to scheduled,
+                "scheduled_local"          to scheduled,
+                "lat"                      to lat,
+                "lng"                      to lng,
                 "assigned_to"              to assignedTo,
                 "assigned_roster_tech_id"  to assignedRosterTechId,
                 "source"               to srcLabel.ifBlank { null },
@@ -3634,7 +3635,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
             PlacesAddressField(
                 value = address,
                 onValueChange = { address = it },
-                onPlaceSelected = { street, c, s, z -> address = street; city = c; stateCode = s; zip = z },
+                onPlaceSelected = { street, c, s, z, la, ln -> address = street; city = c; stateCode = s; zip = z; lat = la; lng = ln },
                 modifier = Modifier.fillMaxWidth()
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -4096,6 +4097,8 @@ fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEdit
     var city       by remember { mutableStateOf("") }
     var stateCode  by remember { mutableStateOf("") }
     var zip        by remember { mutableStateOf("") }
+    var lat        by remember { mutableStateOf<Double?>(null) }
+    var lng        by remember { mutableStateOf<Double?>(null) }
     var priority   by remember { mutableStateOf("medium") }
     var type       by remember { mutableStateOf("service") }
     var jobSource  by remember { mutableStateOf("") }
@@ -4153,9 +4156,12 @@ fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEdit
                 adChannelId = job.ad_channel_id
                 adChannelCustom = job.ad_channel_custom ?: ""
                 job.scheduled_start?.let { start ->
-                    schedDate = start.take(10)
-                    schedTime = start.drop(11).take(5)
+                    // TZ 3/3: show the job-zone wall-clock so editing doesn't shift the time.
+                    schedDate = formatJobInstant(start, job.effective_timezone, "yyyy-MM-dd")
+                    schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
                 }
+                lat = job.lat
+                lng = job.lng
                 lineItems = job.line_items.map { li -> LineItemInput(li.name, li.quantity, li.unit_price) }
             }
         }
@@ -4168,10 +4174,11 @@ fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEdit
 
     fun doSave() {
         if (title.isBlank()) return
+        // TZ 3/3: send scheduled_local wall-clock + coords; backend converts (Path B).
+        // Date-only defaults to noon; blank date stays null (F2).
         val scheduled = when {
-            schedDate.isNotBlank() && schedTime.isNotBlank() -> "${schedDate}T${schedTime}:00"
-            schedDate.isNotBlank()                           -> "${schedDate}T00:00:00"
-            else                                             -> null
+            schedDate.isBlank() -> null
+            else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
         }
         val liBodies = lineItems.map { li -> mapOf("name" to li.name, "quantity" to li.qty, "unit_price" to li.unitPrice, "total" to li.total) }
         vm.updateJob(jobId, mapOf(
@@ -4187,7 +4194,9 @@ fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEdit
             "job_source_id"    to jobSourceId,
             "ad_channel_id"    to adChannelId,
             "ad_channel_custom"        to adChannelCustom.ifBlank { null },
-            "scheduled_start"          to scheduled,
+            "scheduled_local"          to scheduled,
+            "lat"                      to lat,
+            "lng"                      to lng,
             "assigned_to"              to assignedTo,
             "assigned_roster_tech_id"  to assignedRosterTechId,
             "line_items"               to liBodies
@@ -4247,7 +4256,7 @@ fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEdit
             PlacesAddressField(
                 value = address,
                 onValueChange = { address = it },
-                onPlaceSelected = { street, c, s, z -> address = street; city = c; stateCode = s; zip = z },
+                onPlaceSelected = { street, c, s, z, la, ln -> address = street; city = c; stateCode = s; zip = z; lat = la; lng = ln },
                 modifier = Modifier.fillMaxWidth()
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -4614,7 +4623,7 @@ private fun formatQty(qty: Double): String =
 fun PlacesAddressField(
     value:            String,
     onValueChange:    (String) -> Unit,
-    onPlaceSelected:  (street: String, city: String, state: String, zip: String) -> Unit,
+    onPlaceSelected:  (street: String, city: String, state: String, zip: String, lat: Double?, lng: Double?) -> Unit,
     modifier:         Modifier = Modifier
 ) {
     val context      = LocalContext.current
@@ -4680,7 +4689,8 @@ fun PlacesAddressField(
                         expanded = false
                         val placeFields = listOf(
                             Place.Field.ADDRESS_COMPONENTS,
-                            Place.Field.ADDRESS
+                            Place.Field.ADDRESS,
+                            Place.Field.LAT_LNG
                         )
                         placesClient.fetchPlace(
                             FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
@@ -4710,7 +4720,7 @@ fun PlacesAddressField(
                                 }.ifBlank { resp.place.address
                                     ?: prediction.getFullText(null).toString() }
                                 onValueChange(street)
-                                onPlaceSelected(street, city, state, zip)
+                                onPlaceSelected(street, city, state, zip, resp.place.latLng?.latitude, resp.place.latLng?.longitude)
                             }
                             .addOnFailureListener {
                                 onValueChange(prediction.getFullText(null).toString())

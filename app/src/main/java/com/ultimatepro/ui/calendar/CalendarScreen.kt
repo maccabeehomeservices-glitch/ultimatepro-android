@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment; import androidx.compose.ui.Modifier; impor
 import androidx.compose.ui.graphics.Color; import androidx.compose.ui.text.font.FontWeight; import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ultimatepro.ui.common.*; import com.ultimatepro.ui.jobs.JobViewModel
+import com.ultimatepro.util.formatJobInstant
 import java.time.LocalDate; import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +43,7 @@ fun CalendarScreen(onJob:(String)->Unit, onBack:()->Unit, vm:JobViewModel= hiltV
                             Box(Modifier.width(4.dp).height(52.dp).clip(RoundedCornerShape(4.dp)).background(sc))
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)){
-                                job.scheduled_start?.take(16)?.substringAfterLast("T")?.let{Text(it,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                                job.scheduled_start?.let{Text(formatJobInstant(it, job.effective_timezone, "h:mm a zzz"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                                 Text(job.title,fontWeight=FontWeight.SemiBold)
                                 Text(job.customerName,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }
