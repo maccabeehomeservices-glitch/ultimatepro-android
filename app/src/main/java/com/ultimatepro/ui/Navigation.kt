@@ -411,7 +411,9 @@ fun App(
                     onJob       = { id -> navController.navigate("jobs/$id") },
                     onNewJob    = { navController.navigate(Route.JOB_NEW) },
                     onDeleted   = { navController.navigate(Route.CUSTOMERS) { popUpTo(Route.CUSTOMERS) { inclusive = true } } },
-                    onSmsThread = { convId -> navController.navigate("phone/sms/$convId") })
+                    onSmsThread = { convId -> navController.navigate("phone/sms/$convId") },
+                    onEstimate  = { id -> navController.navigate("estimates/$id") },
+                    onInvoice   = { id -> navController.navigate("invoices/$id") })
             }
             composable(Route.CUSTOMER_NEW) {
                 CustomerFormScreen(onBack = { navController.popBackStack() }, onSaved = { navController.popBackStack() })

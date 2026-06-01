@@ -44,8 +44,12 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.Customer
 import com.ultimatepro.domain.model.CustomerContact
 import com.ultimatepro.domain.model.CustomerMembership
+import com.ultimatepro.domain.model.Estimate
+import com.ultimatepro.domain.model.Invoice
 import com.ultimatepro.domain.model.Job
 import com.ultimatepro.ui.common.*
+import com.ultimatepro.ui.estimates.EstimateRow
+import com.ultimatepro.ui.invoices.InvoiceRow
 import com.ultimatepro.ui.memberships.AddEditPlanDialog
 import com.ultimatepro.ui.memberships.MembershipViewModel
 import com.ultimatepro.ui.phone.PhoneViewModel
@@ -72,6 +76,8 @@ data class CustomerState(
     val selected: Customer? = null,
     val contacts: List<CustomerContact> = emptyList(),
     val customerJobs: List<Job> = emptyList(),
+    val customerEstimates: List<Estimate> = emptyList(),
+    val customerInvoices: List<Invoice> = emptyList(),
     val error: String? = null
 )
 
@@ -113,6 +119,20 @@ class CustomerViewModel @Inject constructor(private val repo: CrmRepository) : V
         viewModelScope.launch {
             val r = repo.getJobs(custId = customerId, includeAllStatuses = true)
             _s.update { it.copy(customerJobs = (r as? Result.Success)?.data?.jobs ?: emptyList()) }
+        }
+    }
+
+    fun loadCustomerEstimates(customerId: String) {
+        viewModelScope.launch {
+            val r = repo.getEstimates(custId = customerId)
+            _s.update { it.copy(customerEstimates = (r as? Result.Success)?.data?.estimates ?: emptyList()) }
+        }
+    }
+
+    fun loadCustomerInvoices(customerId: String) {
+        viewModelScope.launch {
+            val r = repo.getInvoices(custId = customerId)
+            _s.update { it.copy(customerInvoices = (r as? Result.Success)?.data?.invoices ?: emptyList()) }
         }
     }
 
@@ -376,6 +396,8 @@ fun CustomerDetailScreen(
     onNewJob: () -> Unit,
     onDeleted: () -> Unit = {},
     onSmsThread: (String) -> Unit = {},
+    onEstimate: (String) -> Unit = {},
+    onInvoice: (String) -> Unit = {},
     vm: CustomerViewModel = hiltViewModel(),
     membershipVm: MembershipViewModel = hiltViewModel(),
     smsVm: PhoneViewModel = hiltViewModel()
@@ -392,7 +414,13 @@ fun CustomerDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var custTab by remember { mutableStateOf(0) }
-    LaunchedEffect(custTab, customerId) { if (custTab == 1) smsVm.loadCustomerMessages(customerId) }
+    LaunchedEffect(custTab, customerId) {
+        when (custTab) {
+            1 -> smsVm.loadCustomerMessages(customerId)
+            2 -> vm.loadCustomerEstimates(customerId)
+            3 -> vm.loadCustomerInvoices(customerId)
+        }
+    }
 
     LaunchedEffect(customerId) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -431,9 +459,11 @@ fun CustomerDetailScreen(
         val extraEmails = state.contacts.filter { it.type == "email" && !it.is_primary }
 
         Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = custTab) {
+            ScrollableTabRow(selectedTabIndex = custTab, edgePadding = 0.dp) {
                 Tab(selected = custTab == 0, onClick = { custTab = 0 }, text = { Text("Details") })
                 Tab(selected = custTab == 1, onClick = { custTab = 1 }, text = { Text("Messages") })
+                Tab(selected = custTab == 2, onClick = { custTab = 2 }, text = { Text("Estimates") })
+                Tab(selected = custTab == 3, onClick = { custTab = 3 }, text = { Text("Invoices") })
             }
             when (custTab) {
                 1 -> {
@@ -443,6 +473,20 @@ fun CustomerDetailScreen(
                         conversationId  = convId,
                         onOpenThread    = if (convId != null) onSmsThread else null
                     )
+                }
+                2 -> {
+                    if (state.customerEstimates.isEmpty()) EmptyView("No estimates yet", Icons.Default.Description)
+                    else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.customerEstimates, key = { it.id }) { est -> EstimateRow(est) { onEstimate(est.id) } }
+                        item { Spacer(Modifier.height(80.dp)) }
+                    }
+                }
+                3 -> {
+                    if (state.customerInvoices.isEmpty()) EmptyView("No invoices yet", Icons.Default.Receipt)
+                    else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.customerInvoices, key = { it.id }) { inv -> InvoiceRow(inv) { onInvoice(inv.id) } }
+                        item { Spacer(Modifier.height(80.dp)) }
+                    }
                 }
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {

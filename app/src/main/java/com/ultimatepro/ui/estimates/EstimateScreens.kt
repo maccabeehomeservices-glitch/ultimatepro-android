@@ -626,18 +626,7 @@ fun EstimateListScreen(
             estimates.isEmpty() -> EmptyView("No estimates yet", Icons.Default.Description)
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(estimates, key = { it.id }) { est ->
-                    val sc = when (est.status) { "approved" -> AppColors.Green; "sent" -> AppColors.Blue; "declined" -> AppColors.Red; else -> AppColors.Slate }
-                    Card(onClick = { onEstimate(est.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(est.estimate_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(est.customerName, fontWeight = FontWeight.SemiBold)
-                                est.valid_until?.let { Text("Valid: $it", style = MaterialTheme.typography.bodySmall) }
-                                if (est.isSigned) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Draw, null, tint = AppColors.Green, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(4.dp)); Text("Signed", style = MaterialTheme.typography.labelSmall, color = AppColors.Green) }
-                            }
-                            Column(horizontalAlignment = Alignment.End) { Text(formatMoney(est.total), fontWeight = FontWeight.Bold); Spacer(Modifier.height(4.dp)); StatusBadge(est.status.replaceFirstChar { it.uppercase() }, sc, small = true) }
-                        }
-                    }
+                    EstimateRow(est) { onEstimate(est.id) }
                 }
                 item { Spacer(Modifier.height(80.dp)) }
             }
@@ -648,6 +637,23 @@ fun EstimateListScreen(
             onPick    = { cust -> showPicker = false; onNewEstimate(cust.id) },
             onDismiss = { showPicker = false }
         )
+    }
+}
+
+// ─── Reusable row (list screen + Customer Detail Estimates tab) ───────────
+@Composable
+fun EstimateRow(est: Estimate, onClick: () -> Unit) {
+    val sc = when (est.status) { "approved" -> AppColors.Green; "sent" -> AppColors.Blue; "declined" -> AppColors.Red; else -> AppColors.Slate }
+    Card(onClick = onClick, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(est.estimate_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(est.customerName, fontWeight = FontWeight.SemiBold)
+                est.valid_until?.let { Text("Valid: $it", style = MaterialTheme.typography.bodySmall) }
+                if (est.isSigned) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Draw, null, tint = AppColors.Green, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(4.dp)); Text("Signed", style = MaterialTheme.typography.labelSmall, color = AppColors.Green) }
+            }
+            Column(horizontalAlignment = Alignment.End) { Text(formatMoney(est.total), fontWeight = FontWeight.Bold); Spacer(Modifier.height(4.dp)); StatusBadge(est.status.replaceFirstChar { it.uppercase() }, sc, small = true) }
+        }
     }
 }
 

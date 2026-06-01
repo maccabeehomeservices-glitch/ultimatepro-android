@@ -248,18 +248,7 @@ fun InvoiceListScreen(
             invoices.isEmpty() -> EmptyView("No invoices yet", Icons.Default.Receipt)
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(invoices, key = { it.id }) { inv ->
-                    val sc = AppColors.invoiceStatus(inv.status)
-                    Card(onClick = { onInvoice(inv.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(inv.invoice_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(inv.customerName, fontWeight = FontWeight.SemiBold)
-                                inv.due_date?.let { Text("Due: $it", style = MaterialTheme.typography.bodySmall, color = if (inv.is_overdue) AppColors.Red else MaterialTheme.colorScheme.onSurfaceVariant) }
-                                if (inv.isSigned) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Draw, null, tint = AppColors.Green, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(4.dp)); Text("Signed", style = MaterialTheme.typography.labelSmall, color = AppColors.Green) }
-                            }
-                            Column(horizontalAlignment = Alignment.End) { Text(formatMoney(inv.total), fontWeight = FontWeight.Bold); Spacer(Modifier.height(4.dp)); StatusBadge(inv.status.replaceFirstChar { it.uppercase() }, sc, small = true) }
-                        }
-                    }
+                    InvoiceRow(inv) { onInvoice(inv.id) }
                 }
                 item { Spacer(Modifier.height(80.dp)) }
             }
@@ -270,6 +259,23 @@ fun InvoiceListScreen(
             onPick    = { cust -> showPicker = false; onNewInvoice(cust.id) },
             onDismiss = { showPicker = false }
         )
+    }
+}
+
+// ─── Reusable row (list screen + Customer Detail Invoices tab) ────────────
+@Composable
+fun InvoiceRow(inv: Invoice, onClick: () -> Unit) {
+    val sc = AppColors.invoiceStatus(inv.status)
+    Card(onClick = onClick, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(inv.invoice_number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(inv.customerName, fontWeight = FontWeight.SemiBold)
+                inv.due_date?.let { Text("Due: $it", style = MaterialTheme.typography.bodySmall, color = if (inv.is_overdue) AppColors.Red else MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (inv.isSigned) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Draw, null, tint = AppColors.Green, modifier = Modifier.size(12.dp)); Spacer(Modifier.width(4.dp)); Text("Signed", style = MaterialTheme.typography.labelSmall, color = AppColors.Green) }
+            }
+            Column(horizontalAlignment = Alignment.End) { Text(formatMoney(inv.total), fontWeight = FontWeight.Bold); Spacer(Modifier.height(4.dp)); StatusBadge(inv.status.replaceFirstChar { it.uppercase() }, sc, small = true) }
+        }
     }
 }
 
