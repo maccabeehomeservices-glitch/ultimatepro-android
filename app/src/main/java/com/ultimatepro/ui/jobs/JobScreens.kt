@@ -1074,7 +1074,10 @@ private fun JobListCard(job: Job, onClick: () -> Unit, onRestore: () -> Unit) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.CalendarMonth, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(4.dp))
-                        val schedText = humanizeScheduled(job.scheduled_start)
+                        // TZ display fix: render the list time in the job's zone (same helper as
+                        // Calendar + Job Detail), not the old SimpleDateFormat device-local path.
+                        val schedText = if (job.scheduled_start.isNullOrBlank()) "Unscheduled"
+                            else formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a zzz")
                         Text(
                             schedText,
                             style = MaterialTheme.typography.labelMedium,
