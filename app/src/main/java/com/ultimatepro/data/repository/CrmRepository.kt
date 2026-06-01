@@ -258,9 +258,6 @@ class CrmRepository @Inject constructor(
     suspend fun addJobPhoto(id: String, photoUrl: String) =
         call { api.addJobPhoto(id, mapOf("photo_url" to photoUrl)) }
 
-    suspend fun saveJobSignature(id: String, signatureUrl: String, signerName: String?) =
-        call { api.saveJobSignature(id, buildMap { put("signature_url", signatureUrl); if (signerName != null) put("signer_name", signerName) }) }
-
     // ── Schedules ─────────────────────────────────────────────────────────
 
     suspend fun getSchedules(from: String? = null, to: String? = null, userId: String? = null) =

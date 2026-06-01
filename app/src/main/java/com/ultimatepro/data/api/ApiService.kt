@@ -170,12 +170,6 @@ interface ApiService {
         @Body body: Map<String, String>
     ): Response<Map<String, Any>>
 
-    @POST("jobs/{id}/signature")
-    suspend fun saveJobSignature(
-        @Path("id") id: String,
-        @Body body: Map<String, String>
-    ): Response<Map<String, String>>
-
     @POST("jobs/{id}/complete")
     suspend fun completeJob(
         @Path("id") id: String,
