@@ -236,6 +236,22 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         }
     }
 
+    // Option-1 pay run: mark every earning in the current range paid. Reuses the same
+    // period/from-to the summary is showing; backend resolves dates identically.
+    fun markRangePaid() {
+        viewModelScope.launch {
+            val s = _state.value
+            when (val r = repo.markEarningsPaid(buildPeriodParams(s.period, s.customFrom, s.customTo))) {
+                is Result.Success -> {
+                    val n = (r.data["count"] as? Number)?.toInt() ?: 0
+                    _state.update { it.copy(message = "Marked $n earning(s) paid") }
+                    refreshCurrentPeriod()
+                }
+                is Result.Error -> _state.update { it.copy(error = r.message ?: "Failed to mark paid") }
+            }
+        }
+    }
+
     fun clearMessages() { _state.update { it.copy(error = null, message = null) } }
 
     private fun refreshCurrentPeriod() {
@@ -312,6 +328,7 @@ fun PayrollScreen(
     var tab       by remember { mutableIntStateOf(0) }
     var period    by remember { mutableStateOf("week") }
     var showPeriod by remember { mutableStateOf(false) }
+    var showMarkPaid by remember { mutableStateOf(false) }
     val snack     = remember { SnackbarHostState() }
 
     val tabs = listOf("Overview", "Job Report", "By Tech")
@@ -331,6 +348,7 @@ fun PayrollScreen(
                         Text(periodLabel(period), color = AppColors.Blue)
                         Icon(Icons.Default.ArrowDropDown, null, tint = AppColors.Blue)
                     }
+                    IconButton(onClick = { showMarkPaid = true }) { Icon(Icons.Default.Paid, "Mark range paid", tint = AppColors.Green) }
                     IconButton(onClick = { vm.loadSummary(period) }) { Icon(Icons.Default.Refresh, null) }
                 }
             )
@@ -373,6 +391,21 @@ fun PayrollScreen(
                 2 -> ByTechTab(state, onTechDetail, onTechSettings, vm, period)
             }
         }
+    }
+
+    // Mark range paid (confirm — it's a money action)
+    if (showMarkPaid) {
+        AlertDialog(
+            onDismissRequest = { showMarkPaid = false },
+            title = { Text("Mark range paid?", fontWeight = FontWeight.Bold) },
+            text = { Text("Mark all earnings in ${periodLabel(period)} as paid? This records that the team was paid for this range and lowers balance owed. Earnings can still recompute if a payment or refund lands later.") },
+            confirmButton = {
+                TextButton(onClick = { showMarkPaid = false; vm.markRangePaid() }) {
+                    Text("Mark Paid", color = AppColors.Green, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showMarkPaid = false }) { Text("Cancel") } }
+        )
     }
 
     // Period picker

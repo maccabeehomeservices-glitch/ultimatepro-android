@@ -446,6 +446,7 @@ class CrmRepository @Inject constructor(
     // ── Payroll ──────────────────────────────────────────────────────────
 
     suspend fun getPayrollSummary(params: Map<String, String>)                   = call { api.getPayrollSummary(params) }
+    suspend fun markEarningsPaid(body: Map<String, Any?>)                        = call { api.markEarningsPaid(body) }
     suspend fun getJobReport(params: Map<String, String>)                        = call { api.getJobReport(params) }
     suspend fun getTechReport(userId: String, params: Map<String, String>)       = call { api.getTechReport(userId, params) }
     suspend fun getProfitBySource(params: Map<String, String>)                   = call { api.getProfitBySource(params) }
@@ -453,10 +454,6 @@ class CrmRepository @Inject constructor(
     suspend fun createProfitRule(data: Map<String, Any?>)                        = call { api.createProfitRule(data) }
     suspend fun updateProfitRule(id: String, data: Map<String, Any?>)            = call { api.updateProfitRule(id, data) }
     suspend fun deleteProfitRule(id: String)                                     = call { api.deleteProfitRule(id) }
-    suspend fun getPayrollPeriods()                                              = call { api.getPayrollPeriods() }
-    suspend fun createPayrollPeriod(data: Map<String, Any?>)                     = call { api.createPayrollPeriod(data) }
-    suspend fun lockPayrollPeriod(id: String)                                    = call { api.lockPayrollPeriod(id) }
-    suspend fun markPayrollPeriodPaid(id: String)                                = call { api.markPayrollPeriodPaid(id) }
     suspend fun getBonuses(userId: String? = null)                               = call { api.getBonuses(userId) }
     suspend fun addBonus(data: Map<String, Any?>)                                = call { api.addBonus(data) }
     suspend fun deleteBonus(id: String)                                          = call { api.deleteBonus(id) }

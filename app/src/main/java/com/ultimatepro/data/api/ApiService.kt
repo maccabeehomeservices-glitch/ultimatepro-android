@@ -597,17 +597,9 @@ interface ApiService {
     @DELETE("payroll/profit-rules/{id}")
     suspend fun deleteProfitRule(@Path("id") id: String): Response<Map<String, String>>
 
-    @GET("payroll/periods")
-    suspend fun getPayrollPeriods(): Response<List<Map<String, Any>>>
-
-    @POST("payroll/periods")
-    suspend fun createPayrollPeriod(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
-
-    @POST("payroll/periods/{id}/lock")
-    suspend fun lockPayrollPeriod(@Path("id") id: String): Response<Map<String, Any>>
-
-    @POST("payroll/periods/{id}/mark-paid")
-    suspend fun markPayrollPeriodPaid(@Path("id") id: String): Response<Map<String, String>>
+    // Option-1 pay run: mark all earnings in a date range paid (no period lock).
+    @POST("payroll/earnings/mark-paid")
+    suspend fun markEarningsPaid(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
     @GET("payroll/bonuses")
     suspend fun getBonuses(@Query("user_id") userId: String? = null): Response<List<Map<String, Any>>>
