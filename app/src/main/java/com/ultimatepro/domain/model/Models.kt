@@ -26,8 +26,16 @@ data class AuthResponse(
     val token: String,
     val refresh_token: String,
     val user: User,
-    val company: Company
+    val company: Company,
+    // Resolved per-section permission levels (Phase 3a-0). null on older responses.
+    val permissions_resolved: Map<String, String>? = null
 )
+
+// Permission RANK + check, mirroring backend utils/permissions.js. Phase 3a-0:
+// available for UI gating; nothing is hidden yet.
+val PERMISSION_RANK = mapOf("none" to 0, "view" to 1, "edit_self" to 2, "full" to 3)
+fun canPermission(perms: Map<String, String>?, section: String, level: String): Boolean =
+    (PERMISSION_RANK[perms?.get(section)] ?: 0) >= (PERMISSION_RANK[level] ?: 0)
 
 // ─── Company ──────────────────────────────────────────────────────────────
 

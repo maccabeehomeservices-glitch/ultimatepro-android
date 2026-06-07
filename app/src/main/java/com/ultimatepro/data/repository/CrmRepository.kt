@@ -66,7 +66,14 @@ class CrmRepository @Inject constructor(
         try { gson.fromJson(it, User::class.java) } catch (e: Exception) { null }
     }
 
-    // Resolved per-section permission levels from /me (for UI gating, e.g. Option B).
+    // Resolved per-section permission levels saved at login (no network). Phase 3a-0.
+    suspend fun getStoredPermissions(): Map<String, String> =
+        store.getPermissionsJson()?.let {
+            try { gson.fromJson(it, object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type) }
+            catch (e: Exception) { null }
+        } ?: emptyMap()
+
+    // Resolved per-section permission levels from /me (live refresh, e.g. Option B).
     suspend fun getMyPermissions(): Map<String, String> =
         when (val r = call { api.getMe() }) {
             is Result.Success -> { @Suppress("UNCHECKED_CAST") ((r.data["permissions_resolved"] as? Map<String, String>) ?: emptyMap()) }
@@ -90,7 +97,8 @@ class CrmRepository @Inject constructor(
         store.save(
             r.token, r.refresh_token,
             gson.toJson(r.user), gson.toJson(r.company),
-            r.user.role, r.user.company_id, r.user.id
+            r.user.role, r.user.company_id, r.user.id,
+            gson.toJson(r.permissions_resolved ?: emptyMap<String, String>())
         )
     }
 

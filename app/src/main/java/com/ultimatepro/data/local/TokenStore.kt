@@ -27,6 +27,7 @@ class TokenStore @Inject constructor(
         val KEY_ROLE    = stringPreferencesKey("user_role")
         val KEY_COMPANY_ID = stringPreferencesKey("company_id")
         val KEY_USER_ID = stringPreferencesKey("user_id")
+        val KEY_PERMISSIONS = stringPreferencesKey("permissions_resolved")
     }
 
     suspend fun save(
@@ -36,16 +37,18 @@ class TokenStore @Inject constructor(
         companyJson: String,
         role: String,
         companyId: String,
-        userId: String
+        userId: String,
+        permissionsJson: String = "{}"
     ) {
         ctx.dataStore.edit { p ->
-            p[KEY_ACCESS]     = accessToken
-            p[KEY_REFRESH]    = refreshToken
-            p[KEY_USER]       = userJson
-            p[KEY_COMPANY]    = companyJson
-            p[KEY_ROLE]       = role
-            p[KEY_COMPANY_ID] = companyId
-            p[KEY_USER_ID]    = userId
+            p[KEY_ACCESS]      = accessToken
+            p[KEY_REFRESH]     = refreshToken
+            p[KEY_USER]        = userJson
+            p[KEY_COMPANY]     = companyJson
+            p[KEY_ROLE]        = role
+            p[KEY_COMPANY_ID]  = companyId
+            p[KEY_USER_ID]     = userId
+            p[KEY_PERMISSIONS] = permissionsJson
         }
     }
 
@@ -56,6 +59,7 @@ class TokenStore @Inject constructor(
     suspend fun getRole()         = ctx.dataStore.data.map { it[KEY_ROLE]    }.first()
     suspend fun getCompanyId()    = ctx.dataStore.data.map { it[KEY_COMPANY_ID] }.first()
     suspend fun getUserId()       = ctx.dataStore.data.map { it[KEY_USER_ID] }.first()
+    suspend fun getPermissionsJson() = ctx.dataStore.data.map { it[KEY_PERMISSIONS] }.first()
     suspend fun isLoggedIn()      = getAccessToken()?.isNotBlank() == true
 
     suspend fun clear() {
