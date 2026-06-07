@@ -24,6 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.ultimatepro.BuildConfig
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
+import com.ultimatepro.domain.model.canPermission
 import com.ultimatepro.ui.auth.AuthViewModel
 import com.ultimatepro.ui.common.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -82,6 +83,7 @@ fun SettingsScreen(
 ) {
     var showLogout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val perms by authVm.permissions.collectAsState()   // Phase 3a: hide entries a user can't use
     val ucmId by networkIdVm.ucmId.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -124,7 +126,8 @@ fun SettingsScreen(
             Section("Views") {
                 Item("Calendar",   Icons.Default.CalendarMonth, onCalendar)
                 Item("Live Map",   Icons.Default.Map,           onLiveMap)
-                Item("Reports",    Icons.Default.BarChart,      onReports)
+                if (canPermission(perms, "reports", "view"))
+                    Item("Reports",    Icons.Default.BarChart,      onReports)
             }
 
             Section("Business") {
@@ -134,26 +137,31 @@ fun SettingsScreen(
                     description = "Manage services, materials, and pricing")
                 Item("My Network", Icons.Default.People,        onNetwork,
                     description = "Connect with contractors, share jobs, split revenue")
-                Item("Job Sources",      Icons.Default.Source,        onJobSources,
-                    description = "Track where jobs come from — contacts, ads, network")
-                Item("Review Platforms", Icons.Default.Star,   onReviewPlatforms,
-                    description = "Manage review links sent with payment receipts")
+                if (canPermission(perms, "job_sources_commissions", "view"))
+                    Item("Job Sources",      Icons.Default.Source,        onJobSources,
+                        description = "Track where jobs come from — contacts, ads, network")
+                if (canPermission(perms, "team_settings", "view"))
+                    Item("Review Platforms", Icons.Default.Star,   onReviewPlatforms,
+                        description = "Manage review links sent with payment receipts")
                 Item("Online Booking",  Icons.Default.CalendarMonth, onOnlineBooking,
                     description = "Let customers book appointments from a web link")
                 Item("Membership Plans", Icons.Default.Autorenew, onMembershipPlans,
                     description = "Define recurring service plans for customers")
                 Item("Inventory", Icons.Default.Inventory2, onInventory,
                     description = "Track parts across warehouse and trucks")
-                Item("Technicians", Icons.Default.Engineering, onTechnicians,
-                    description = "Manage field techs without app logins")
-                Item("Team Members", Icons.Default.ManageAccounts, onTeamMembers,
-                    description = "Manage app users, roles, and access")
+                if (canPermission(perms, "team_settings", "view"))
+                    Item("Technicians", Icons.Default.Engineering, onTechnicians,
+                        description = "Manage field techs without app logins")
+                if (canPermission(perms, "team_settings", "view"))
+                    Item("Team Members", Icons.Default.ManageAccounts, onTeamMembers,
+                        description = "Manage app users, roles, and access")
                 Item("Custom Fields", Icons.Default.Label, onCustomFields,
                     description = "Add custom data fields to jobs, customers, estimates")
                 Item("⚡ Ailot", Icons.Default.FlashOn, onAilot,
                     description = "Smart Automation Rules")
-                Item("Integrations", Icons.Default.Link, onIntegrations,
-                    description = "Connect QuickBooks Online and other tools")
+                if (canPermission(perms, "team_settings", "view"))
+                    Item("Integrations", Icons.Default.Link, onIntegrations,
+                        description = "Connect QuickBooks Online and other tools")
             }
 
             Section("Notifications") {
@@ -167,12 +175,14 @@ fun SettingsScreen(
             Section("Finance") {
                 Item("Estimates",  Icons.Default.Description,   onEstimates)
                 Item("Invoices",   Icons.Default.Receipt,       onInvoices)
-                Item("Payments",   Icons.Default.Payment,       onPayments)
+                if (canPermission(perms, "payments_refunds", "view"))
+                    Item("Payments",   Icons.Default.Payment,       onPayments)
             }
 
             Section("Payroll") {
-                Item("Payroll & Reports", Icons.Default.AccountBalance, onPayroll,
-                    description = "Earnings, job reports, tech salary, bonuses")
+                if (canPermission(perms, "accounting_earnings", "view"))
+                    Item("Payroll & Reports", Icons.Default.AccountBalance, onPayroll,
+                        description = "Earnings, job reports, tech salary, bonuses")
             }
 
             // ── My UltimatePro ID ──────────────────────────────────────────

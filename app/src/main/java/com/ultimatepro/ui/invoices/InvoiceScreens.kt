@@ -320,6 +320,7 @@ fun InvoiceDetailScreen(
     val inv    by vm.selected.collectAsState()
     val msg    by vm.message.collectAsState()
     val picked by (pickerVm?.picked?.collectAsState() ?: remember { mutableStateOf(emptyMap<String, PickedEntry>()) })
+    val perms by androidx.hilt.navigation.compose.hiltViewModel<com.ultimatepro.ui.auth.AuthViewModel>().permissions.collectAsState()
     val snack  = remember { SnackbarHostState() }
     var showPaymentOptions by remember { mutableStateOf(false) }
     // Picker is activity-scoped; clear stale picks from a previous caller on mount.
@@ -428,6 +429,7 @@ fun InvoiceDetailScreen(
                             OutlinedButton(onClick = { onSend(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Invoice + Payment Link") }
                         }
                         "signed" -> {
+                            if (com.ultimatepro.domain.model.canPermission(perms, "payments_refunds", "edit_self"))
                             Button(
                                 onClick = { showPaymentOptions = true },
                                 modifier = Modifier.fillMaxWidth(),

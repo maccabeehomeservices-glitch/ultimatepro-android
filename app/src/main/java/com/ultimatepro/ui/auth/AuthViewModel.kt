@@ -27,8 +27,14 @@ class AuthViewModel @Inject constructor(private val repo: CrmRepository) : ViewM
     private val _loggedIn = MutableStateFlow(false)
     val loggedIn: StateFlow<Boolean> = _loggedIn.asStateFlow()
 
+    // Resolved per-section permission levels (Phase 3a). Loaded from the store at
+    // session start; used to hide controls/nav a user can't use. No network call.
+    private val _permissions = MutableStateFlow<Map<String, String>>(emptyMap())
+    val permissions: StateFlow<Map<String, String>> = _permissions.asStateFlow()
+
     init {
         viewModelScope.launch { _loggedIn.value = repo.isLoggedIn() }
+        viewModelScope.launch { _permissions.value = repo.getStoredPermissions() }
     }
 
     fun login(email: String, password: String) = viewModelScope.launch {

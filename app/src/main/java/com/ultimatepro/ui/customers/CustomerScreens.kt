@@ -243,6 +243,7 @@ fun CustomerListScreen(
     val state by vm.state.collectAsState()
     val isSelectionMode by vm.isSelectionMode.collectAsState()
     val selectedIds by vm.selectedIds.collectAsState()
+    val perms by androidx.hilt.navigation.compose.hiltViewModel<com.ultimatepro.ui.auth.AuthViewModel>().permissions.collectAsState()
     var search by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var resumeKey by remember { mutableIntStateOf(0) }
@@ -291,7 +292,7 @@ fun CustomerListScreen(
             }
         }
     }, floatingActionButton = {
-        if (!isSelectionMode) {
+        if (!isSelectionMode && com.ultimatepro.domain.model.canPermission(perms, "customers", "edit_self")) {
             ExtendedFloatingActionButton(
                 onClick = onNewCustomer,
                 icon = { Icon(Icons.Default.PersonAdd, null) },
