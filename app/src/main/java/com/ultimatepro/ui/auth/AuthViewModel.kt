@@ -27,14 +27,26 @@ class AuthViewModel @Inject constructor(private val repo: CrmRepository) : ViewM
     private val _loggedIn = MutableStateFlow(false)
     val loggedIn: StateFlow<Boolean> = _loggedIn.asStateFlow()
 
-    // Resolved per-section permission levels (Phase 3a). Loaded from the store at
-    // session start; used to hide controls/nav a user can't use. No network call.
+    // Resolved per-section permission levels (Phase 3a). Used to hide controls/nav.
     private val _permissions = MutableStateFlow<Map<String, String>>(emptyMap())
     val permissions: StateFlow<Map<String, String>> = _permissions.asStateFlow()
 
+    // Stored role — used for the owner/admin UI backstop (canUi). Reliable even on a
+    // stale session (saved since before 3a).
+    private val _role = MutableStateFlow<String?>(null)
+    val role: StateFlow<String?> = _role.asStateFlow()
+
     init {
         viewModelScope.launch { _loggedIn.value = repo.isLoggedIn() }
-        viewModelScope.launch { _permissions.value = repo.getStoredPermissions() }
+        viewModelScope.launch {
+            _role.value = repo.getStoredRole()
+            // Instant paint from the stored value, then refresh from /me (mirrors web,
+            // which re-fetches /me on mount). Fixes stale sessions whose stored perms
+            // are empty — without forcing a re-login. Keep stored value if /me fails.
+            _permissions.value = repo.getStoredPermissions()
+            val fresh = repo.getMyPermissions()
+            if (fresh.isNotEmpty()) _permissions.value = fresh
+        }
     }
 
     fun login(email: String, password: String) = viewModelScope.launch {

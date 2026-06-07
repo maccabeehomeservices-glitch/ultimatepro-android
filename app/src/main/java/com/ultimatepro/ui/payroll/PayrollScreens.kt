@@ -325,7 +325,9 @@ fun PayrollScreen(
     vm: PayrollViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
-    val perms by androidx.hilt.navigation.compose.hiltViewModel<com.ultimatepro.ui.auth.AuthViewModel>().permissions.collectAsState()
+    val authVm: com.ultimatepro.ui.auth.AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val perms by authVm.permissions.collectAsState()
+    val role by authVm.role.collectAsState()
     var tab       by remember { mutableIntStateOf(0) }
     var period    by remember { mutableStateOf("week") }
     var showPeriod by remember { mutableStateOf(false) }
@@ -349,7 +351,7 @@ fun PayrollScreen(
                         Text(periodLabel(period), color = AppColors.Blue)
                         Icon(Icons.Default.ArrowDropDown, null, tint = AppColors.Blue)
                     }
-                    if (com.ultimatepro.domain.model.canPermission(perms, "accounting_earnings", "full"))
+                    if (com.ultimatepro.domain.model.canUi(role, perms, "accounting_earnings", "full"))
                         IconButton(onClick = { showMarkPaid = true }) { Icon(Icons.Default.Paid, "Mark range paid", tint = AppColors.Green) }
                     IconButton(onClick = { vm.loadSummary(period) }) { Icon(Icons.Default.Refresh, null) }
                 }

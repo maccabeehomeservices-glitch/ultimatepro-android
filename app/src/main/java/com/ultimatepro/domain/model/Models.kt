@@ -37,6 +37,13 @@ val PERMISSION_RANK = mapOf("none" to 0, "view" to 1, "edit_self" to 2, "full" t
 fun canPermission(perms: Map<String, String>?, section: String, level: String): Boolean =
     (PERMISSION_RANK[perms?.get(section)] ?: 0) >= (PERMISSION_RANK[level] ?: 0)
 
+// UI gate with an owner/admin backstop (Phase 3a fix). owner/admin are always full
+// (matches web + server templates), so an empty/stale perms map never blanks their
+// nav. NON-owner roles fall through to the rank check — the backstop is owner/admin
+// ONLY, it does NOT grant other roles full access.
+fun canUi(role: String?, perms: Map<String, String>?, section: String, level: String): Boolean =
+    role == "owner" || role == "admin" || canPermission(perms, section, level)
+
 // ─── Company ──────────────────────────────────────────────────────────────
 
 @Parcelize

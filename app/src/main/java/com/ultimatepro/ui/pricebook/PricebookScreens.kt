@@ -513,7 +513,9 @@ fun PricebookItemListScreen(
     val picked  by vm.picked.collectAsState()
     val search  by vm.search.collectAsState()
     val error   by vm.error.collectAsState()
-    val perms by androidx.hilt.navigation.compose.hiltViewModel<com.ultimatepro.ui.auth.AuthViewModel>().permissions.collectAsState()
+    val authVm: com.ultimatepro.ui.auth.AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val perms by authVm.permissions.collectAsState()
+    val role by authVm.role.collectAsState()
 
     // null or blank categoryId → load all items (no category filter)
     LaunchedEffect(categoryId, search) {
@@ -535,7 +537,7 @@ fun PricebookItemListScreen(
         },
         floatingActionButton = {
             // Only shown on the flat "All Items" picker (categoryId == null = opened from estimate)
-            if (categoryId == null && com.ultimatepro.domain.model.canPermission(perms, "pricebook", "edit_self")) {
+            if (categoryId == null && com.ultimatepro.domain.model.canUi(role, perms, "pricebook", "edit_self")) {
                 ExtendedFloatingActionButton(
                     onClick = { showNewItemForm = true; newItemError = null },
                     icon    = { Icon(Icons.Default.Add, null) },

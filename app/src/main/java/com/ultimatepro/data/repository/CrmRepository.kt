@@ -66,6 +66,9 @@ class CrmRepository @Inject constructor(
         try { gson.fromJson(it, User::class.java) } catch (e: Exception) { null }
     }
 
+    // Stored role (reliable even on a stale session — saved since before 3a). Phase 3a.
+    suspend fun getStoredRole(): String? = store.getRole()
+
     // Resolved per-section permission levels saved at login (no network). Phase 3a-0.
     suspend fun getStoredPermissions(): Map<String, String> =
         store.getPermissionsJson()?.let {
