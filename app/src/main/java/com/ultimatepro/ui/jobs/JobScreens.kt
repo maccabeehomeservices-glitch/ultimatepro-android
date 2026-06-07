@@ -153,6 +153,7 @@ data class JobsState(
     val sendToMsg:          String?         = null,
     val parts:              List<JobPart>   = emptyList(),
     val currentUser:        User?           = null,
+    val jobsPermission:     String?         = null,   // resolved jobs level (Option B)
     val newInvoiceId:       String?         = null
 )
 
@@ -434,6 +435,7 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch {
             val user = repo.getCurrentUser()
             if (user != null) _s.update { it.copy(currentUser = user, currentUserRole = user.role) }
+            _s.update { it.copy(jobsPermission = repo.getMyPermissions()["jobs"]) }
         }
     }
 
@@ -3518,7 +3520,8 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
                 }
             }
 
-            // ── SOURCE ────────────────────────────────────────────────────
+            // ── SOURCE (Option B: hidden for non-full job creators; admin sets it later) ──
+            if ((state.jobsPermission ?: "full") == "full") {
             SectionLabel("SOURCE")
             ExposedDropdownMenuBox(expanded = sourceDropOpen, onExpandedChange = { sourceDropOpen = it }) {
                 OutlinedTextField(
@@ -3576,6 +3579,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
                         }
                     }
                 }
+            }
             }
 
             // ── JOB TYPE ──────────────────────────────────────────────────

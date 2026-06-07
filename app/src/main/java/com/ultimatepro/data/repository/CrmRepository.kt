@@ -66,6 +66,13 @@ class CrmRepository @Inject constructor(
         try { gson.fromJson(it, User::class.java) } catch (e: Exception) { null }
     }
 
+    // Resolved per-section permission levels from /me (for UI gating, e.g. Option B).
+    suspend fun getMyPermissions(): Map<String, String> =
+        when (val r = call { api.getMe() }) {
+            is Result.Success -> { @Suppress("UNCHECKED_CAST") ((r.data["permissions_resolved"] as? Map<String, String>) ?: emptyMap()) }
+            is Result.Error   -> emptyMap()
+        }
+
     suspend fun getCurrentCompany(): Company? = store.getCompanyJson()?.let {
         try { gson.fromJson(it, Company::class.java) } catch (e: Exception) { null }
     }
