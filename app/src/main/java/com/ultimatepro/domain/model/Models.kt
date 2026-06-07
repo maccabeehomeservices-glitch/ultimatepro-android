@@ -82,6 +82,8 @@ data class User(
     // Emergency
     val emergency_name: String? = null,
     val emergency_phone: String? = null,
+    // Granular permissions overrides (Phase 1: stored; null = use role template).
+    val permissions: Map<String, String>? = null,
     val last_login: String? = null,
     val created_at: String? = null
 ) : Parcelable {

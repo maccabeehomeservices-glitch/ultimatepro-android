@@ -447,6 +447,7 @@ class CrmRepository @Inject constructor(
 
     suspend fun getPayrollSummary(params: Map<String, String>)                   = call { api.getPayrollSummary(params) }
     suspend fun markEarningsPaid(body: Map<String, Any?>)                        = call { api.markEarningsPaid(body) }
+    suspend fun getPermissionSchema()                                            = call { api.getPermissionSchema() }
     suspend fun getJobReport(params: Map<String, String>)                        = call { api.getJobReport(params) }
     suspend fun getTechReport(userId: String, params: Map<String, String>)       = call { api.getTechReport(userId, params) }
     suspend fun getProfitBySource(params: Map<String, String>)                   = call { api.getProfitBySource(params) }

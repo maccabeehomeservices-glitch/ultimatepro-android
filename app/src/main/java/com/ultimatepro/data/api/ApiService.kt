@@ -601,6 +601,10 @@ interface ApiService {
     @POST("payroll/earnings/mark-paid")
     suspend fun markEarningsPaid(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
+    // Permission model (sections, levels, role templates) for the Team Member grid.
+    @GET("users/permission-schema")
+    suspend fun getPermissionSchema(): Response<Map<String, Any>>
+
     @GET("payroll/bonuses")
     suspend fun getBonuses(@Query("user_id") userId: String? = null): Response<List<Map<String, Any>>>
 
