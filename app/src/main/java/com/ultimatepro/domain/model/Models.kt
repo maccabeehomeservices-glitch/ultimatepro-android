@@ -263,6 +263,8 @@ data class Job(
     val membership_id: String? = null,
     val assigned_roster_tech_id: String? = null,
     val tech_notify_method: String? = null,
+    // Pending-review earnings gate: 'approved' (default) | 'pending_review'.
+    val review_status: String? = null,
     val created_at: String? = null
 ) : Parcelable {
     val customerName get() = "$cust_first ${cust_last ?: ""}".trim().ifBlank { "—" }

@@ -221,6 +221,7 @@ class CrmRepository @Inject constructor(
         call { api.updateJobStatus(id, buildMap { put("status", status); if (notes != null) put("notes", notes) }) }
 
     suspend fun completeJob(id: String, body: Map<String, Any?>)  = call { api.completeJob(id, body) }
+    suspend fun approveEarnings(id: String)                       = call { api.approveEarnings(id) }
     suspend fun getJobCompletion(id: String): Result<com.ultimatepro.domain.model.JobCompletionDetails?> {
         return when (val r = call { api.getJobCompletion(id) }) {
             is Result.Success -> {

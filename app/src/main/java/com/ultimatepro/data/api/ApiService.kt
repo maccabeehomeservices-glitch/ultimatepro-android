@@ -182,6 +182,9 @@ interface ApiService {
     @POST("jobs/{id}/completion/confirm")
     suspend fun confirmJobCompletion(@Path("id") id: String): Response<Map<String, Any>>
 
+    @POST("jobs/{id}/approve-earnings")
+    suspend fun approveEarnings(@Path("id") id: String): Response<Map<String, Any>>
+
     @POST("jobs/{id}/send-to-partner")
     suspend fun sendJobToPartner(
         @Path("id") id: String,

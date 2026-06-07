@@ -554,6 +554,16 @@ class JobViewModel @Inject constructor(
         }
     }
 
+    // Release held (pending-review) earnings. Backend guards via canApproveEarnings.
+    fun approveEarnings(jobId: String) {
+        viewModelScope.launch {
+            when (val r = repo.approveEarnings(jobId)) {
+                is Result.Success -> { loadJob(jobId); _s.update { it.copy(partnerActionMsg = "Earnings approved") } }
+                is Result.Error   -> _s.update { it.copy(error = r.message) }
+            }
+        }
+    }
+
     fun loadSendToRecipients(job: Job) {
         viewModelScope.launch {
             _s.update { it.copy(sendToLoading = true, sendToRecipients = emptyList()) }
@@ -1497,6 +1507,35 @@ fun JobDetailScreen(
                         Icon(Icons.Default.KeyboardArrowDown, null, tint = sc, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
                         PriorityBadge(job.priority)
+                    }
+                }
+            }
+            // Earnings pending-review banner (gate). Approvers (owner/admin) get the
+            // release button; everyone else sees it as informational.
+            if (job.review_status == "pending_review") {
+                item {
+                    val canApproveEarnings = currentRole in listOf("owner", "admin")
+                    Surface(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        color = AppColors.Orange.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.HourglassEmpty, null, tint = AppColors.Orange, modifier = Modifier.size(18.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Earnings pending review", fontWeight = FontWeight.SemiBold, color = AppColors.Orange)
+                                Text("Completed by a team member. Earnings are held until an owner or admin approves them.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (canApproveEarnings) {
+                                TextButton(
+                                    onClick = { vm.approveEarnings(jobId) },
+                                    modifier = Modifier.heightIn(min = 44.dp)
+                                ) {
+                                    Text("Approve", color = AppColors.Orange, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                     }
                 }
             }
