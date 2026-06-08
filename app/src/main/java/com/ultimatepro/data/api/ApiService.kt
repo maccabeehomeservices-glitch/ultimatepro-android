@@ -946,7 +946,7 @@ interface ApiService {
     @GET("sms/conversations/{id}/messages")
     suspend fun getConversationMessages(
         @Path("id") conversationId: String
-    ): Response<List<SmsMessage>>
+    ): Response<ThreadResponse>
 
     @POST("sms/conversations/{id}/send")
     suspend fun sendSmsReply(

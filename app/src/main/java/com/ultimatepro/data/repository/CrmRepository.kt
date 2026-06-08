@@ -1116,7 +1116,15 @@ class CrmRepository @Inject constructor(
 
     // ── SMS Conversations ─────────────────────────────────────────────────────
     suspend fun getSmsConversations(): Result<List<SmsConversation>>      = call { api.getSmsConversations() }
-    suspend fun getConversationMessages(conversationId: String): Result<List<SmsMessage>> = call { api.getConversationMessages(conversationId) }
+    // Endpoint now returns { conversation, messages }; unwrap .messages so callers
+    // (PhoneScreens) still get the message list unchanged. The name keeps coming from
+    // the cached conversation list (threadConversation); the response's conversation is
+    // available too as a fallback.
+    suspend fun getConversationMessages(conversationId: String): Result<List<SmsMessage>> =
+        when (val r = call { api.getConversationMessages(conversationId) }) {
+            is Result.Success -> Result.Success(r.data.messages)
+            is Result.Error   -> Result.Error(r.message)
+        }
     suspend fun sendSmsReply(conversationId: String, message: String): Result<SmsMessage> =
         call { api.sendSmsReply(conversationId, mapOf("message" to message)) }
     suspend fun getCustomerMessages(customerId: String): Result<List<SmsMessage>> = call { api.getCustomerMessages(customerId) }

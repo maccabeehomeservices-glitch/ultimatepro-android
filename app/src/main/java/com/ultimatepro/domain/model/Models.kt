@@ -1223,6 +1223,12 @@ data class SmsMessage(
     val status: String? = null
 )
 
+// GET /sms/conversations/:id/messages now returns { conversation, messages }.
+data class ThreadResponse(
+    val conversation: SmsConversation? = null,
+    val messages: List<SmsMessage> = emptyList()
+)
+
 // ─── Timesheets ────────────────────────────────────────────────────────────
 
 data class Timesheet(
