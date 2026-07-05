@@ -7,3 +7,7 @@ captures/
 .cxx/
 app/release/
 app/debug/
+
+# Signing keystores (never commit)
+*.keystore
+*.jks
