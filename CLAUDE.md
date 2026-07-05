@@ -5,6 +5,15 @@ The universal rules (Six Rules, em-dash ban, no fabrication, formatting,
 verification) live in `C:\Users\dadus\Desktop\CLAUDE-RULES.md` and apply 
 here too. This file adds UltimatePro Android-specific rules on top.
 
+## Session workflow + truth sources
+
+- Read `C:\ultimatecrm\backend\MISSION_CONTROL.md` at session start; update it
+  at session end, in the same commit as the work. It supersedes
+  `C:\ultimatecrm\CHANGELOG.md`.
+- Schema truth = live prod introspection only; see
+  `C:\ultimatecrm\PROJECT_REALITY_20260705.md` VERIFIED FACTS. Committed SQL
+  and the boot-time DDL in server.js are NOT reliable.
+
 ## Project context
 
 - Kotlin + Jetpack Compose + Hilt.
@@ -16,9 +25,9 @@ here too. This file adds UltimatePro Android-specific rules on top.
 - Firebase: project `ultimatecrm-a9e32`.
 - Sister projects:
   - Backend: C:\ultimatecrm\backend (Node.js + Express + PostgreSQL on 
-    Railway, project steadfast-beauty)
+    Railway, project easygoing-generosity, with the Postgres service)
   - Web: C:\ultimatecrm\web (React 18 + Vite 5 + Tailwind, hosted on 
-    Railway, domain ultimatepro.pro)
+    Railway, project steadfast-beauty, domain ultimatepro.pro)
 
 ## Hard rules (never violate)
 
@@ -58,6 +67,9 @@ here too. This file adds UltimatePro Android-specific rules on top.
   `leftover_notes`, `phone`. NOT `title` / `description` / `notes` / 
   `customer_phone`.
 - Jobs POST: `scheduled_start` ISO string, null-safe.
+- Estimate convert: `POST /estimates/:id/convert-to-invoice` (the real route;
+  there is no `/convert`).
+- Backend health check is `GET /health` (no `/api` prefix); `/api/health` 404s.
 - `EstimateTier` data class field names: `tier_label`, `description`, 
   `line_items`, `subtotal`, `tax_total`, `discount_total`, `total`, 
   `sort_order`. With `@SerializedName` annotations matching backend 
