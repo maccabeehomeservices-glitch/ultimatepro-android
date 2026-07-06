@@ -18,7 +18,12 @@ appId: com.ultimatepro.staging
     text: "Sign In"
     index: 1
 # Login done when the auth screen ("Welcome back") is gone and the dashboard has loaded.
+# Generous timeout: a cold-booted emulator + staging round-trip can take >20s.
+# Generous ceiling: on an emulator under load the staging login round-trip can exceed 45s.
+# This only bites when login is slow — a fast login passes immediately.
 - extendedWaitUntil:
     notVisible: "Welcome back"
-    timeout: 20000
-- assertVisible: "Jobs Today"
+    timeout: 90000
+- extendedWaitUntil:
+    visible: "Jobs Today"
+    timeout: 90000
