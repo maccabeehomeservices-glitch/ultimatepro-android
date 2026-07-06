@@ -1,0 +1,9 @@
+# Breadth: Customers list loads with search + Import (mirrors P1.3 web customers breadth).
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Customers"   # bottom-nav destination
+- assertVisible: "Import"
+- assertVisible: "Search…"
+- assertVisible: "Residential"   # a customer row's type badge — proves rows render

@@ -1,0 +1,19 @@
+# Breadth: dashboard renders the KPI set + 5-item bottom nav (mirrors P1.3 web breadth).
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+# KPI cards (labels are stable; the greeting is time-of-day dependent so we don't assert it).
+- assertVisible: "Jobs Today"
+- assertVisible: "Month Revenue"
+- assertVisible: "Completed"
+# Bottom nav — the 5 destinations.
+- assertVisible:
+    text: "Dashboard"
+- assertVisible:
+    text: "Jobs"
+- assertVisible:
+    text: "Customers"
+- assertVisible:
+    text: "Phone"
+- assertVisible:
+    text: "More"

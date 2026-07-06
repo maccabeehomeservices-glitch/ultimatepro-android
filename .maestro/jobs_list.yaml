@@ -1,0 +1,10 @@
+# Breadth: Jobs list loads seeded jobs, with search + filters (mirrors P1.3 web jobs breadth).
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Jobs"     # bottom-nav destination
+- assertVisible: "Filters"
+- assertVisible: "Search…"
+- assertVisible:
+    text: "DEMO-J-.*"   # a seeded job number (regex)

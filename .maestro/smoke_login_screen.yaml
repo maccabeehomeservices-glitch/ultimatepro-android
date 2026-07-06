@@ -1,0 +1,13 @@
+# Smoke: the staging app launches and the login screen renders.
+# Validates the whole Maestro harness (emulator + staging APK + selectors).
+appId: com.ultimatepro.staging
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- assertVisible: "UltimatePro"
+- assertVisible: "Field Service Management"
+- assertVisible: "Sign In"
+- assertVisible: "Email"
+- assertVisible: "Password"

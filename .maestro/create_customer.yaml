@@ -1,0 +1,26 @@
+# Write path: create a customer end-to-end against the staging backend, verify it persists.
+# The Android "core loop" entry point; no external-send control is touched.
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- evalScript: ${output.custName = 'M8Cust' + Math.floor(Math.random() * 1000000)}
+- tapOn:
+    text: "Customers"
+- assertVisible: "Import"
+- tapOn:
+    point: 90%, 80%        # add-customer FAB (bottom-right, no text label)
+- assertVisible: "New Customer"
+- tapOn: "First.*"      # label is "First *"; Maestro anchors the regex
+- inputText: ${output.custName}
+- tapOn: "Last"
+- inputText: "Maestro"
+- tapOn: "Phone"
+- inputText: "5550111"
+- hideKeyboard
+- tapOn: "Save"
+# Save succeeded when the form closes and the new customer's name is shown (detail/list).
+- extendedWaitUntil:
+    notVisible: "New Customer"
+    timeout: 15000
+# Name is rendered as "First Last"; anchor with .* so the full-match regex still hits.
+- assertVisible: "${output.custName}.*"

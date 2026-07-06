@@ -1,0 +1,24 @@
+# Reusable: launch fresh, log in as the demo owner against the STAGING backend, land home.
+# Used standalone and via runFlow by the breadth/write flows.
+# Safe: the staging build's API_BASE_URL points at the staging backend (app/build.gradle),
+# and no external-send control is touched.
+appId: com.ultimatepro.staging
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- assertVisible: "Sign In"
+- tapOn: "Email"
+- inputText: "demo@ultimatepro.pro"
+- tapOn: "Password"
+- inputText: "ChangeMe#Demo2026"
+- hideKeyboard
+- tapOn:
+    text: "Sign In"
+    index: 1
+# Login done when the auth screen ("Welcome back") is gone and the dashboard has loaded.
+- extendedWaitUntil:
+    notVisible: "Welcome back"
+    timeout: 20000
+- assertVisible: "Jobs Today"
