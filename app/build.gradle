@@ -46,6 +46,17 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // P1.1 staging build — points at the staging backend, installs alongside prod
+        // via the .staging applicationId suffix. Does not touch release config.
+        staging {
+            initWith debug
+            applicationIdSuffix ".staging"
+            versionNameSuffix "-staging"
+            signingConfig signingConfigs.debug
+            buildConfigField "String", "API_BASE_URL", '"https://ultimatecrm-backend-staging.up.railway.app/api/"'
+            buildConfigField "String", "SOCKET_URL", '"https://ultimatecrm-backend-staging.up.railway.app"'
+            matchingFallbacks = ['debug']
+        }
     }
 
     compileOptions {
