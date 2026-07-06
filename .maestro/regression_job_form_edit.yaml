@@ -1,0 +1,23 @@
+# Regression (P2.1): Edit-Job reuses the redesigned form (unified create+edit, like web) —
+# "Edit Job" title, source-first order, read-only customer, "Save Changes"; NO legacy
+# Title/Priority/Charges and no create-only "Save & Send".
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Jobs"
+- tapOn: "DEMO-J-.*"        # open a seeded job's detail
+- assertVisible: "Job Details"
+- tapOn: "Edit job"         # top-bar pencil (contentDescription)
+- assertVisible: "Edit Job"
+- assertVisible: "SOURCE"
+- assertVisible: "JOB TYPE"
+- assertVisible: "ASSIGN TECHNICIAN"
+- assertNotVisible: "PRIORITY"
+- assertNotVisible: "CHARGES & PARTS"
+- assertNotVisible: "Save & Send"
+# "Save Changes" lives at the bottom of the scrollable form:
+- scrollUntilVisible:
+    element:
+      text: "Save Changes"
+    direction: DOWN

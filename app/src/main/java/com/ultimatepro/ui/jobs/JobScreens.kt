@@ -1436,7 +1436,7 @@ fun JobDetailScreen(
                     }
                 }
                 IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = AppColors.Red) }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null) }
+                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit job") }
                 IconButton(onClick = { showStatus = true }) { Icon(Icons.Default.Update, null) }
             } }
         )
@@ -3239,7 +3239,7 @@ fun CompleteJobScreen(
 // ── Job Form ───────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hiltViewModel(), sourceVm: com.ultimatepro.ui.settings.JobSourceViewModel = hiltViewModel()) {
+fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = null, vm: JobViewModel = hiltViewModel(), sourceVm: com.ultimatepro.ui.settings.JobSourceViewModel = hiltViewModel()) {
     val state     by vm.state.collectAsState()
     val clipboard =  LocalClipboardManager.current
 
@@ -3308,6 +3308,39 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
         }
     }
 
+    // ── Edit mode: reuse this redesigned form for editing (unified like web). Load the
+    //    job once and prefill; the save path branches to updateJob. ──────────────────
+    val isEdit = editJobId != null
+    var initialized by remember { mutableStateOf(false) }
+    LaunchedEffect(editJobId) { if (editJobId != null) vm.loadJob(editJobId) }
+    LaunchedEffect(state.selected, currentUser?.id) {
+        if (isEdit && !initialized) {
+            state.selected?.let { job ->
+                if (job.id == editJobId) {
+                    initialized = true
+                    notes      = job.notes ?: ""
+                    address    = job.address ?: ""; city = job.city ?: ""; stateCode = job.state ?: ""; zip = job.zip ?: ""
+                    lat        = job.lat; lng = job.lng
+                    type       = job.type
+                    custName   = job.customerName; customerId = job.customer_id; custPhone = job.cust_phone ?: ""
+                    assignedTo = job.assigned_to; assignedRosterTechId = job.assigned_roster_tech_id
+                    assignCat  = when {
+                        job.assigned_roster_tech_id != null -> "roster"
+                        job.assigned_to != null && job.assigned_to == currentUser?.id -> "self"
+                        job.assigned_to != null -> "team"
+                        else -> "self"
+                    }
+                    job.scheduled_start?.let { start ->
+                        schedDate = formatJobInstant(start, job.effective_timezone, "yyyy-MM-dd")
+                        schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
+                    }
+                    sourceType = job.source_type; jobSourceId = job.job_source_id; adChannelId = job.ad_channel_id
+                    selectedSourceName = job.source?.ifBlank { null } ?: "My Company"
+                }
+            }
+        }
+    }
+
     // ── Auto-fill all fields when ticket is parsed ─────────────────────────
     LaunchedEffect(state.parsedTicket) {
         state.parsedTicket?.let { t ->
@@ -3358,6 +3391,38 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
         val resolvedCustomerId = forceCustomerId ?: customerId
         Log.d("DuplicateSheet", "doSaveNow called with customerId: $resolvedCustomerId (forced=$forceCustomerId)")
         vm.clearError()
+        // ── Edit mode: update the existing job. title/priority/line_items are intentionally
+        //    OMITTED — the backend PUT COALESCEs missing columns (title/priority preserved) and
+        //    only rewrites job_line_items when line_items is present (so parts are untouched).
+        //    Assignment + schedule + source ARE sent so reassign/reschedule work. ──────────
+        if (isEdit && editJobId != null) {
+            val scheduledEdit = when {
+                schedDate.isBlank() -> null
+                else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
+            }
+            val srcLabelEdit = buildString {
+                if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
+                if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
+            }
+            vm.updateJob(editJobId, mapOf(
+                "type"                    to type,
+                "address"                 to address.ifBlank { null },
+                "city"                    to city.ifBlank { null },
+                "state"                   to stateCode.ifBlank { null },
+                "zip"                     to zip.ifBlank { null },
+                "notes"                   to notes.ifBlank { null },
+                "scheduled_local"         to scheduledEdit,
+                "lat"                     to lat,
+                "lng"                     to lng,
+                "assigned_to"             to assignedTo,
+                "assigned_roster_tech_id" to assignedRosterTechId,
+                "source"                  to srcLabelEdit.ifBlank { null },
+                "source_type"             to sourceType,
+                "job_source_id"           to jobSourceId,
+                "ad_channel_id"           to adChannelId
+            )) { onSaved() }
+            return
+        }
         val nameParts = custName.trim().split(" ", limit = 2)
         // TZ 3/3: send a naive wall-clock (YYYY-MM-DDTHH:mm) as scheduled_local + coords;
         // the backend resolves the address zone and converts to a UTC instant (Path B).
@@ -3424,6 +3489,8 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
 
     // ── Save entry point — checks for duplicate first if needed ───────────
     fun doSave(sendToTech: Boolean = false) {
+        // Edit mode has a fixed customer — skip the create-only duplicate flow.
+        if (isEdit) { doSaveNow(); return }
         // If duplicate sheet is already showing, re-show it instead of saving
         if (state.duplicateCustomer != null) { showDuplicateSheet = true; return }
         // Already have a customer ID (from paste ticket or prior sheet selection) → save
@@ -3453,21 +3520,23 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
     // ══════════════════════════════════════════════════════════════════════
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("New Job", fontWeight = FontWeight.Bold) },
+            title = { Text(if (isEdit) "Edit Job" else "New Job", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = {
-                if (state.isParsing) {
-                    Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = AppColors.Blue)
-                    }
-                } else {
-                    TextButton(
-                        onClick = { clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let { vm.parseTicket(it) } },
-                        colors  = ButtonDefaults.textButtonColors(contentColor = AppColors.Blue)
-                    ) {
-                        Icon(Icons.Default.ContentPaste, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Paste Ticket", fontWeight = FontWeight.SemiBold)
+                if (!isEdit) {
+                    if (state.isParsing) {
+                        Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = AppColors.Blue)
+                        }
+                    } else {
+                        TextButton(
+                            onClick = { clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let { vm.parseTicket(it) } },
+                            colors  = ButtonDefaults.textButtonColors(contentColor = AppColors.Blue)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Paste Ticket", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
                 TextButton(
@@ -3501,7 +3570,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
                     }
                 }
             }
-            if (customerId != null && custName.isNotBlank()) {
+            if (!isEdit && customerId != null && custName.isNotBlank()) {
                 Card(colors = CardDefaults.cardColors(containerColor = AppColors.Blue.copy(.12f)), shape = RoundedCornerShape(10.dp)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Person, null, tint = AppColors.Blue, modifier = Modifier.size(18.dp))
@@ -3609,7 +3678,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
 
             // ── NOTIFICATION METHOD (visible when non-self tech assigned) ──
             val isNonSelf = assignCat != "self" && (assignedTo != null || assignedRosterTechId != null)
-            if (isNonSelf) {
+            if (isNonSelf && !isEdit) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "SEND VIA",
@@ -3646,6 +3715,20 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
 
             // ── CUSTOMER ──────────────────────────────────────────────────
             SectionLabel("CUSTOMER")
+            if (isEdit) {
+                // Edit mode: the job's customer is fixed — show it read-only (the update
+                // path does not change the customer link, matching web edit).
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(custName.ifBlank { "Customer" }, fontWeight = FontWeight.SemiBold)
+                            if (custPhone.isNotBlank()) Text(custPhone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            } else {
             if (customerId != null) {
                 OutlinedTextField(custName, { custName = it; customerId = null }, label = { Text("Customer Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), trailingIcon = { Icon(Icons.Default.CheckCircle, null, tint = AppColors.Green) })
             } else {
@@ -3675,6 +3758,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
             TextButton(onClick = { extraCustEmails.add("") }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
                 Text("+ Add email", color = AppColors.Blue, fontSize = 13.sp)
             }
+            } // end else — create-mode editable customer inputs
 
             // ── ADDRESS ───────────────────────────────────────────────────
             SectionLabel("ADDRESS")
@@ -3773,6 +3857,17 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
             }
 
             // ── Action Buttons ────────────────────────────────────────────
+            if (isEdit) {
+                Button(
+                    onClick = { doSave() },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A73E8)),
+                    enabled = !state.isParsing
+                ) {
+                    Text("Save Changes", fontWeight = FontWeight.Bold)
+                }
+            } else {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -3797,6 +3892,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: JobViewModel = hi
                         Text("Save & Send", fontWeight = FontWeight.Bold)
                     }
                 }
+            }
             }
             Spacer(Modifier.height(40.dp))
         }

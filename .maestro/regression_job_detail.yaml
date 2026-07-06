@@ -1,0 +1,12 @@
+# Regression (P2.1): Job Detail keeps the Apr-13 redesign — customer card + Job Site present,
+# and NO on-screen Get-Signature pad (removed in the reorg).
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Jobs"
+- tapOn: "DEMO-J-.*"
+- assertVisible: "Job Details"
+- assertVisible: "Customer"
+- assertVisible: "Job Site"
+- assertNotVisible: "Get Signature"

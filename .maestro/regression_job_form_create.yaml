@@ -1,0 +1,22 @@
+# Regression (P2.1): the New-Job form keeps the Apr-13 UX redesign — source-first order,
+# no legacy Title/Priority/Charges fields. A revert reintroducing those fails this.
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Jobs"
+- tapOn:
+    point: 80%, 80%          # "+ New Job" FAB (Compose FAB label not in the a11y tree)
+- assertVisible: "New Job"   # form title
+- assertVisible: "SOURCE"
+- assertVisible: "JOB TYPE"
+- assertVisible: "ASSIGN TECHNICIAN"
+- assertVisible: "CUSTOMER"
+# Redesign removed these (were near the top of the old form) — their return signals a regression:
+- assertNotVisible: "PRIORITY"
+- assertNotVisible: "CHARGES & PARTS"
+# Save action lives at the bottom of the scrollable form:
+- scrollUntilVisible:
+    element:
+      text: "Save Job"
+    direction: DOWN

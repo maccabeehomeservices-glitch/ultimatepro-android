@@ -392,10 +392,11 @@ fun App(
                 )
             }
             composable(Route.JOB_EDIT, listOf(navArgument("id") { type = NavType.StringType })) {
-                JobEditScreen(jobId = it.arguments?.getString("id") ?: "",
+                // P2.1: edit reuses the redesigned JobFormScreen (unified create+edit, like web).
+                JobFormScreen(
+                    editJobId = it.arguments?.getString("id") ?: "",
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() },
-                    onEditCustomer = { id -> navController.navigate("customers/$id/edit") })
+                    onSaved = { navController.popBackStack() })
             }
             composable(
                 "jobs/new?ticket={ticket}",
