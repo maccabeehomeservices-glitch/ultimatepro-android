@@ -1,0 +1,34 @@
+# Regression (P2.1c): an own-company job with no ad channel (e.g. a pasted ticket saved with
+# the default source) shows Source = "My Company" on the detail — never blank. Mirrors web
+# (job_source_name ?: ad_channel_name ?: "My Company"). Creates such a job and asserts it.
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- evalScript: ${output.sn = 'P21cSrc' + Math.floor(Math.random() * 100000)}
+- tapOn:
+    text: "Jobs"
+- tapOn:
+    point: 80%, 80%              # "+ New Job" FAB
+- assertVisible: "New Job"
+- tapOn: "Customer Name"
+- inputText: ${output.sn}         # name-only customer → own_company default source, no channel
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Save Job"
+    direction: DOWN
+- tapOn: "Save Job"
+# Android returns to the jobs list; the new (unscheduled, today) job sorts BELOW the
+# future-scheduled seed jobs, so reload (Dashboard→Jobs) and scroll down to it.
+- tapOn:
+    text: "Dashboard"
+- tapOn:
+    text: "Jobs"
+- scrollUntilVisible:
+    element:
+      text: ${output.sn}
+    direction: DOWN
+    timeout: 20000
+- tapOn: ${output.sn}
+- assertVisible: "Job Details"
+- assertVisible: "My Company"     # Source column — own_company shows "My Company", not blank

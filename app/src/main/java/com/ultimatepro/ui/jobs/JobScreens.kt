@@ -1755,7 +1755,9 @@ fun JobDetailScreen(
                         Text("Source", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            job.job_source_name ?: "—",
+                            // P2.1c: mirror web (JobDetail.jsx) — own-company jobs have no
+                            // job_source_name/ad_channel_name; show "My Company", never blank.
+                            job.job_source_name ?: job.ad_channel_name ?: "My Company",
                             style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
                             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
