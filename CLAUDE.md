@@ -7,6 +7,7 @@ here too. This file adds UltimatePro Android-specific rules on top.
 
 ## Session workflow + truth sources
 
+- Autopilot protocol: backend/AUTOPILOT.md. "continue the mission" = execute it.
 - Read `C:\ultimatecrm\backend\MISSION_CONTROL.md` at session start; update it
   at session end, in the same commit as the work. It supersedes
   `C:\ultimatecrm\CHANGELOG.md`.

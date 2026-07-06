@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull origin staging:*)",
+      "Bash(git push origin staging:*)",
+      "Bash(git push -u origin staging:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gradlew:*)",
+      "Bash(adb:*)",
+      "Bash(curl https://ultimatecrm-backend-staging.up.railway.app:*)",
+      "Bash(curl https://ultimatepro-web-staging.up.railway.app:*)",
+      "Bash(curl http://localhost:*)",
+      "Bash(curl http://127.0.0.1:*)",
+      "Bash(curl -s https://ultimatecrm-backend-staging.up.railway.app:*)",
+      "Bash(curl -s https://ultimatepro-web-staging.up.railway.app:*)"
+    ],
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  }
+}
