@@ -1425,7 +1425,10 @@ fun JobDetailScreen(
             title = { Text(job?.job_number ?: "Job Detail", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = { job?.let {
-                if (job.status in listOf("unscheduled", "scheduled") && job.cust_phone != null) {
+                // P2.1b item 3: Dispatch icon mirrors web (JobDetail.jsx) — shown for
+                // unscheduled/scheduled, no cust_phone gate. Same POST /jobs/:id/dispatch
+                // (geolocation-or-omit via FusedLocation in dispatchJob).
+                if (job.status in listOf("unscheduled", "scheduled")) {
                     IconButton(onClick = { showDispatchConfirm = true }) {
                         Icon(Icons.Default.Navigation, "Dispatch", tint = Color(0xFF1A73E8))
                     }
@@ -1437,7 +1440,8 @@ fun JobDetailScreen(
                 }
                 IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = AppColors.Red) }
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit job") }
-                IconButton(onClick = { showStatus = true }) { Icon(Icons.Default.Update, null) }
+                // P2.1b item 2: removed the duplicate top-bar status (Update) icon —
+                // the inline status control (tap the status pill below) is the single way.
             } }
         )
     }) { padding ->
@@ -1739,11 +1743,10 @@ fun JobDetailScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 // Row 2: Source | Type | Assigned (three-column)
-                val techDisplayName = when {
-                    job.techName != null -> job.techName
-                    job.assigned_roster_tech_id != null -> state.rosterTechs.find { it.id == job.assigned_roster_tech_id }?.name
-                    else -> null
-                }
+                // P2.1b: mirror web (JobDetail.jsx) — show the assigned user (tech_first/last)
+                // XOR the roster tech (flat roster_tech_name from the GET /jobs/:id JOIN);
+                // no dependency on state.rosterTechs being loaded.
+                val techDisplayName = job.techName ?: job.roster_tech_name
                 Row(Modifier.fillMaxWidth()) {
                     Column(
                         Modifier.weight(1f).clickable(onClick = onEdit).padding(vertical = 4.dp),
@@ -1778,7 +1781,7 @@ fun JobDetailScreen(
                         Text("Assigned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            techDisplayName ?: "—",
+                            techDisplayName ?: "Unassigned",   // mirror web; blank only if both null
                             style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
                             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
@@ -3670,7 +3673,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.Person, null, Modifier.size(16.dp))
+                Icon(Icons.Default.Person, "Change assignment", Modifier.size(16.dp))  // P2.1b: test anchor (distinct from the "ASSIGN TECHNICIAN" label)
                 Spacer(Modifier.width(8.dp))
                 Text(assignmentLabel, modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp))

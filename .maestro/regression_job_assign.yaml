@@ -1,0 +1,27 @@
+# Regression (P2.1b item 1): assigning a tech in the edit form makes the Job Detail
+# "Assigned" row show the tech's NAME (was blank for roster techs before the roster_tech_name
+# fix). Assigns roster tech "Tina Tech" and asserts it on the detail.
+appId: com.ultimatepro.staging
+---
+- runFlow: login.yaml
+- tapOn:
+    text: "Jobs"
+- tapOn: "DEMO-J-.*"
+- assertVisible: "Job Details"
+- tapOn: "Edit job"
+- extendedWaitUntil:
+    visible: "SOURCE"          # edit form loaded
+    timeout: 20000
+- tapOn: "Change assignment"   # assign button (leading-icon contentDescription; distinct from the section label)
+- extendedWaitUntil:
+    visible: "Partner"         # assign dialog open ("Partner" appears only in the dialog)
+    timeout: 15000
+- tapOn: "Roster"
+- tapOn: "Tina Tech"           # selects + closes the dialog
+- scrollUntilVisible:
+    element:
+      text: "Save Changes"
+    direction: DOWN
+- tapOn: "Save Changes"
+- assertVisible: "Job Details" # back on the detail
+- assertVisible: "Tina Tech"   # Assigned row now shows the name

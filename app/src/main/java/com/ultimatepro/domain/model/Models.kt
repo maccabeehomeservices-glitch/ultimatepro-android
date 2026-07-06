@@ -258,6 +258,7 @@ data class Job(
     val tech_phone: String? = null,
     val tech_avatar: String? = null,
     val tech_color: String? = null,
+    val roster_tech_name: String? = null,   // GET /jobs/:id → rt.name AS roster_tech_name (P2.1b)
     val subtotal: Double? = null,
     // Partner / job-sharing fields
     val sent_to_company_id: String? = null,

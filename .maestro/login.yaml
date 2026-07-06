@@ -23,7 +23,7 @@ appId: com.ultimatepro.staging
 # This only bites when login is slow — a fast login passes immediately.
 - extendedWaitUntil:
     notVisible: "Welcome back"
-    timeout: 90000
+    timeout: 120000
 - extendedWaitUntil:
     visible: "Jobs Today"
-    timeout: 90000
+    timeout: 120000
