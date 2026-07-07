@@ -803,6 +803,7 @@ data class ParsedTicket(
     val source:             String? = null,
     val sourceReviewLink:   String? = null,
     val existingCustomerId: String? = null,
+    val matchType:          String? = null,   // P2.1l: 'phone' (auto-attach) | 'name' (surface choice) | null
     val leftoverNotes:      String? = null
 )
 

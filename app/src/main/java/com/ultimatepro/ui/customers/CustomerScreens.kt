@@ -271,11 +271,8 @@ fun CustomerListScreen(
                 navigationIcon = {
                     IconButton(onClick = { vm.exitSelectionMode() }) { Icon(Icons.Default.Close, null) }
                 },
-                actions = {
-                    IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
+                // P2.1l Part A: customers are permanent — no bulk-delete action.
+                actions = {}
             )
         } else {
             Column {
@@ -314,12 +311,9 @@ fun CustomerListScreen(
                     items(state.customers, key = { it.id }) { c ->
                         val isSelected = c.id in selectedIds
                         Card(
+                            // P2.1l Part A: no long-press multi-select (its only action was delete).
                             modifier = Modifier.fillMaxWidth().combinedClickable(
-                                onClick = {
-                                    if (isSelectionMode) vm.toggleSelection(c.id)
-                                    else onCustomer(c.id)
-                                },
-                                onLongClick = { vm.toggleSelection(c.id) }
+                                onClick = { onCustomer(c.id) }
                             ),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
@@ -369,22 +363,7 @@ fun CustomerListScreen(
         }
     }
 
-    if (showDeleteConfirm && selectedIds.isNotEmpty()) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete ${selectedIds.size} customer${if (selectedIds.size == 1) "" else "s"}?") },
-            text = { Text("This cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    vm.deleteSelectedCustomers {}
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
-            }
-        )
-    }
+    // P2.1l Part A: customers are permanent — bulk-delete confirm removed.
 }
 
 // ── Customer Detail ───────────────────────────────────────────────────────
@@ -443,16 +422,7 @@ fun CustomerDetailScreen(
             actions = {
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") }
                 IconButton(onClick = onNewJob) { Icon(Icons.Default.Add, "New Job") }
-                Box {
-                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Delete Customer", color = MaterialTheme.colorScheme.error) },
-                            onClick = { showMenu = false; showDeleteConfirm = true },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-                        )
-                    }
-                }
+                // P2.1l Part A: customers are permanent — no delete/archive overflow menu.
             }
         )
     }) { padding ->
@@ -741,22 +711,7 @@ fun CustomerDetailScreen(
         )
     }
 
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Customer?") },
-            text = { Text("Delete ${state.selected?.fullName ?: "this customer"}? All associated data will be removed.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    vm.deleteCustomer(customerId) { onDeleted() }
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
-            }
-        )
-    }
+    // P2.1l Part A: customers are permanent — the delete-confirm dialog is removed.
 
     if (showAddPhone) {
         AddContactDialog(

@@ -336,6 +336,9 @@ class JobViewModel @Inject constructor(
                     val m = r.data
                     val rawPhones = (m["phone_numbers"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                     val existingCustId = m["existing_customer_id"] as? String
+                    // P2.1l Part B: 'phone' → auto-attach; 'name' (even name+address) → surface
+                    // the choice without pre-attaching (default Create New). null → no match.
+                    val matchType = m["match_type"] as? String
                     val ticket = ParsedTicket(
                         ticketRef          = m["ticket_ref"] as? String,
                         customerName       = m["customer_name"] as? String,
@@ -354,6 +357,7 @@ class JobViewModel @Inject constructor(
                         source             = m["source"] as? String,
                         sourceReviewLink   = m["source_review_link"] as? String,
                         existingCustomerId = existingCustId,
+                        matchType          = matchType,
                         leftoverNotes      = (m["leftover_notes"] as? String)?.takeIf { it.isNotBlank() }
                     )
                     // Build duplicate customer info if an existing customer was found
@@ -3359,7 +3363,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
             t.scheduledDate?.let    { schedDate = it }
             t.scheduledTime?.let    { schedTime = it }
             t.source?.let           { selectedSourceName = it }
-            customerId = t.existingCustomerId
+            // P2.1l Part B: only a PHONE match auto-attaches. A name-only match leaves
+            // customerId null so dismissing the sheet defaults to Create New (the parsed
+            // name/phone below still populate the form → a new customer is created on save).
+            if (t.matchType == "phone") customerId = t.existingCustomerId
 
             // Multi-phone: primary goes in custPhone, extras collected for post-save
             val allPhones = t.phoneNumbers.ifEmpty { listOfNotNull(t.phone) }
