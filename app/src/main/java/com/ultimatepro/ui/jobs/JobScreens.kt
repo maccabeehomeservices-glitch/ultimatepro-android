@@ -61,6 +61,12 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -4807,104 +4813,109 @@ fun PlacesAddressField(
     val context      = LocalContext.current
     val placesClient = remember { Places.createClient(context) }
     var predictions  by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    var expanded     by remember { mutableStateOf(false) }
+    var showSuggestions by remember { mutableStateOf(false) }
+    // P2.18: skip the debounced query for one change after a programmatic set (select/clear)
+    // so choosing a suggestion doesn't immediately reopen the dropdown.
+    var suppressQuery by remember { mutableStateOf(false) }
+    var fieldSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+
+    // P2.18: DEBOUNCE (~300ms). The old code called Places on every keystroke AND surfaced
+    // suggestions in a focus-stealing DropdownMenu, so the IME (keyboard) was dismissed per
+    // letter. Now a single debounced request runs after typing settles; suggestions render in
+    // a non-focus-stealing Popup (below) so the keyboard stays up continuously.
+    LaunchedEffect(value) {
+        if (suppressQuery) { suppressQuery = false; return@LaunchedEffect }
+        if (value.trim().length < 3) { predictions = emptyList(); showSuggestions = false; return@LaunchedEffect }
+        delay(300)
+        val req = FindAutocompletePredictionsRequest.builder().setQuery(value).build()
+        placesClient.findAutocompletePredictions(req)
+            .addOnSuccessListener { resp ->
+                predictions = resp.autocompletePredictions
+                showSuggestions = predictions.isNotEmpty()
+            }
+            .addOnFailureListener { showSuggestions = false }
+    }
+
+    val selectPrediction: (AutocompletePrediction) -> Unit = { prediction ->
+        showSuggestions = false
+        val placeFields = listOf(Place.Field.ADDRESS_COMPONENTS, Place.Field.ADDRESS, Place.Field.LAT_LNG)
+        placesClient.fetchPlace(FetchPlaceRequest.newInstance(prediction.placeId, placeFields))
+            .addOnSuccessListener { resp ->
+                var streetNum = ""; var route = ""; var city = ""; var state = ""; var zip = ""
+                resp.place.addressComponents?.asList()?.forEach { comp ->
+                    when {
+                        "street_number" in comp.types -> streetNum = comp.name
+                        "route"         in comp.types -> route     = comp.name
+                        "locality"      in comp.types -> city      = comp.name
+                        "administrative_area_level_1" in comp.types -> state = comp.shortName ?: comp.name
+                        "postal_code"   in comp.types -> zip       = comp.name
+                    }
+                }
+                val street = buildString {
+                    if (streetNum.isNotBlank()) append(streetNum)
+                    if (route.isNotBlank()) { if (isNotBlank()) append(" "); append(route) }
+                }.ifBlank { resp.place.address ?: prediction.getFullText(null).toString() }
+                suppressQuery = true
+                onValueChange(street)
+                onPlaceSelected(street, city, state, zip, resp.place.latLng?.latitude, resp.place.latLng?.longitude)
+            }
+            .addOnFailureListener {
+                suppressQuery = true
+                onValueChange(prediction.getFullText(null).toString())
+            }
+    }
 
     Box(modifier) {
         OutlinedTextField(
             value         = value,
-            onValueChange = { text ->
-                onValueChange(text)
-                if (text.length >= 3) {
-                    val req = FindAutocompletePredictionsRequest.builder()
-                        .setQuery(text)
-                        .build()
-                    placesClient.findAutocompletePredictions(req)
-                        .addOnSuccessListener { resp ->
-                            predictions = resp.autocompletePredictions
-                            expanded    = predictions.isNotEmpty()
-                        }
-                        .addOnFailureListener { expanded = false }
-                } else {
-                    predictions = emptyList()
-                    expanded    = false
-                }
-            },
+            onValueChange = { onValueChange(it) },   // P2.18: no inline Places call — the debounced effect drives it
             label      = { Text("Street") },
             singleLine = true,
-            modifier   = Modifier.fillMaxWidth(),
+            modifier   = Modifier.fillMaxWidth().onGloballyPositioned { fieldSize = it.size },
             shape      = RoundedCornerShape(12.dp),
             trailingIcon = {
                 if (value.isNotBlank()) {
                     IconButton(
-                        onClick   = { onValueChange(""); predictions = emptyList(); expanded = false },
+                        onClick   = { suppressQuery = true; onValueChange(""); predictions = emptyList(); showSuggestions = false },
                         modifier  = Modifier.size(36.dp)
                     ) { Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp)) }
                 }
             }
         )
 
-        DropdownMenu(
-            expanded          = expanded,
-            onDismissRequest  = { expanded = false },
-            modifier          = Modifier.fillMaxWidth()
-        ) {
-            predictions.take(5).forEach { prediction ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(
-                                prediction.getPrimaryText(null).toString(),
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                prediction.getSecondaryText(null).toString(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    onClick = {
-                        expanded = false
-                        val placeFields = listOf(
-                            Place.Field.ADDRESS_COMPONENTS,
-                            Place.Field.ADDRESS,
-                            Place.Field.LAT_LNG
-                        )
-                        placesClient.fetchPlace(
-                            FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-                        )
-                            .addOnSuccessListener { resp ->
-                                var streetNum = ""
-                                var route     = ""
-                                var city      = ""
-                                var state     = ""
-                                var zip       = ""
-                                resp.place.addressComponents?.asList()?.forEach { comp ->
-                                    when {
-                                        "street_number" in comp.types -> streetNum = comp.name
-                                        "route"         in comp.types -> route     = comp.name
-                                        "locality"      in comp.types -> city      = comp.name
-                                        "administrative_area_level_1" in comp.types ->
-                                            state = comp.shortName ?: comp.name
-                                        "postal_code"   in comp.types -> zip       = comp.name
-                                    }
+        if (showSuggestions && predictions.isNotEmpty()) {
+            // P2.18: focusable=false Popup anchored directly under the field → keyboard stays up.
+            Popup(
+                offset = IntOffset(0, fieldSize.height),
+                properties = PopupProperties(focusable = false),
+                onDismissRequest = { showSuggestions = false }
+            ) {
+                Surface(
+                    modifier = Modifier.width(with(density) { fieldSize.width.toDp() }),
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column {
+                        predictions.take(5).forEach { prediction ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { selectPrediction(prediction) }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Column {
+                                    Text(prediction.getPrimaryText(null).toString(), fontWeight = FontWeight.Medium)
+                                    Text(
+                                        prediction.getSecondaryText(null).toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                val street = buildString {
-                                    if (streetNum.isNotBlank()) append(streetNum)
-                                    if (route.isNotBlank()) {
-                                        if (isNotBlank()) append(" ")
-                                        append(route)
-                                    }
-                                }.ifBlank { resp.place.address
-                                    ?: prediction.getFullText(null).toString() }
-                                onValueChange(street)
-                                onPlaceSelected(street, city, state, zip, resp.place.latLng?.latitude, resp.place.latLng?.longitude)
                             }
-                            .addOnFailureListener {
-                                onValueChange(prediction.getFullText(null).toString())
-                            }
+                        }
                     }
-                )
+                }
             }
         }
     }
