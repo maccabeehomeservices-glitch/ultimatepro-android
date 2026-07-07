@@ -383,8 +383,7 @@ interface ApiService {
     @POST("payments")
     suspend fun recordPayment(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
-    @POST("payments/scanpay/charge")
-    suspend fun scanpayCharge(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
+    // P2.5: payments/scanpay/charge removed — phantom (no backend route, no caller).
 
     @POST("payments/scanpay-qr")
     suspend fun createScanPayQr(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ScanPayQrResponse>
@@ -652,12 +651,8 @@ interface ApiService {
     @POST("payroll/simulate")
     suspend fun simulateProfit(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
-    // ── Payroll report sending ─────────────────────────────────────────
-    @POST("payroll/send-report/{userId}")
-    suspend fun sendPayrollReport(
-        @Path("userId") userId: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any?>
-    ): Response<Map<String, Any>>
+    // P2.5: payroll/send-report/{userId} removed — phantom (no backend route).
+    // Real tech-report send is POST /reports/tech/:userId/send (needs from/to).
 
     // ── Full user profile update (includes address, pay, emergency) ────
     @GET("users/{id}")

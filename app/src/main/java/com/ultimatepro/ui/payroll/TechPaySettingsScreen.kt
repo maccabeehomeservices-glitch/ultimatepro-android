@@ -57,12 +57,9 @@ class TechSettingsViewModel @Inject constructor(private val repo:CrmRepository):
         when(repo.saveUserProfile(userId,data)){is Result.Success->{_s.update{it.copy(saving=false,message="Profile saved")};onDone()};is Result.Error->_s.update{it.copy(saving=false,error="Failed to save")}}
     }}
 
-    fun sendReport(userId:String,period:String,sendEmail:Boolean,sendSms:Boolean){viewModelScope.launch{_s.update{it.copy(sending=true)}
-        when(val r=repo.sendPayrollReport(userId,period,sendEmail,sendSms)){
-            is Result.Success->_s.update{it.copy(sending=false,message="Report sent! Net: $${(r.data["net_payout"] as? Number)?.let{n->"%.2f".format(n.toDouble())}?:"0.00"}")}
-            is Result.Error->_s.update{it.copy(sending=false,error=r.message)}
-        }
-    }}
+    // P2.5: payroll send-report removed — it POSTed to the phantom
+    // payroll/send-report/{userId} (no such backend route). Rebuild against the
+    // real POST /reports/tech/:userId/send (needs from/to, not period) if wanted.
 
     fun update(block:TechProfileState.()->TechProfileState){_s.update(block)}
     fun clearMessages(){_s.update{it.copy(error=null,message=null)}}
@@ -73,7 +70,6 @@ class TechSettingsViewModel @Inject constructor(private val repo:CrmRepository):
 fun TechPaySettingsScreen(userId:String, onBack:()->Unit, vm:TechSettingsViewModel= hiltViewModel()){
     val state by vm.state.collectAsState()
     val snack=remember{SnackbarHostState()}
-    var showSend by remember{mutableStateOf(false)}
     var tab by remember{mutableIntStateOf(0)}
     LaunchedEffect(userId){vm.load(userId)}
     LaunchedEffect(state.message){if(state.message!=null){snack.showSnackbar(state.message!!);vm.clearMessages()}}
@@ -83,10 +79,6 @@ fun TechPaySettingsScreen(userId:String, onBack:()->Unit, vm:TechSettingsViewMod
         title={Column{Text(if(state.firstName.isNotBlank())"${state.firstName} ${state.lastName}".trim() else "Tech Profile",fontWeight=FontWeight.Bold);Text("Profile & Pay Settings",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
         navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},
         actions={
-            IconButton(onClick={showSend=true},enabled=!state.sending){
-                if(state.sending)CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp)
-                else Icon(Icons.Default.Send,"Send Report",tint=AppColors.Blue)
-            }
             TextButton(onClick={vm.save(userId,onBack)},enabled=!state.saving){
                 if(state.saving)CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp)
                 else Text("Save",fontWeight=FontWeight.Bold)
@@ -99,8 +91,6 @@ fun TechPaySettingsScreen(userId:String, onBack:()->Unit, vm:TechSettingsViewMod
             when(tab){0->ContactTab(state,vm);1->PayRateTab(state,vm);2->MaterialsTab(state,vm)}
         }
     }
-    if(showSend)SendReportDialog(techName="${state.firstName} ${state.lastName}".trim(),techEmail=state.email,techPhone=state.phone,
-        onSend={period,email,sms->showSend=false;vm.sendReport(userId,period,email,sms)},onDismiss={showSend=false})
 }
 
 @Composable
@@ -209,26 +199,4 @@ private fun MaterialPolicyOption(value:String,selected:String,title:String,subti
     }
 }
 
-@Composable
-fun SendReportDialog(techName:String,techEmail:String,techPhone:String,onSend:(String,Boolean,Boolean)->Unit,onDismiss:()->Unit){
-    var period by remember{mutableStateOf("week")}
-    var sendEmail by remember{mutableStateOf(techEmail.isNotBlank())}
-    var sendSms by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,
-        title={Column{Text("Send Payroll Report",fontWeight=FontWeight.Bold);Text("to $techName",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
-        text={Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
-            Text("Period",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                listOf("today" to "Today","week" to "This Week","month" to "Month").forEach{(v,l)->FilterChip(selected=period==v,onClick={period=v},label={Text(l,fontSize=12.sp)},modifier=Modifier.weight(1f))}
-            }
-            HorizontalDivider()
-            Text("Send via",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.SemiBold)
-            if(techEmail.isNotBlank()){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sendEmail,onCheckedChange={sendEmail=it});Spacer(Modifier.width(8.dp));Column{Text("Email",fontWeight=FontWeight.Medium);Text(techEmail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-            else{Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(8.dp),colors=CardDefaults.cardColors(containerColor=AppColors.Orange.copy(.1f))){Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Warning,null,tint=AppColors.Orange,modifier=Modifier.size(16.dp));Spacer(Modifier.width(8.dp));Text("No email on file. Add one in Contact tab.",style=MaterialTheme.typography.bodySmall,color=AppColors.Orange)}}}
-            if(techPhone.isNotBlank()){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sendSms,onCheckedChange={sendSms=it});Spacer(Modifier.width(8.dp));Column{Text("SMS (summary)",fontWeight=FontWeight.Medium);Text(techPhone,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-            if(!sendEmail&&!sendSms)Text("Select at least one delivery method",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
-        }},
-        confirmButton={Button(onClick={onSend(period,sendEmail,sendSms)},enabled=sendEmail||sendSms,shape=RoundedCornerShape(8.dp)){Icon(Icons.Default.Send,null,Modifier.size(16.dp));Spacer(Modifier.width(6.dp));Text("Send Report")}},
-        dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}}
-    )
-}
+// P2.5: SendReportDialog removed with the phantom payroll/send-report path.

@@ -435,7 +435,7 @@ class CrmRepository @Inject constructor(
     suspend fun getPayments(invoiceId: String? = null, customerId: String? = null, status: String? = null, page: Int = 1) =
         call { api.getPayments(invoiceId, customerId, status, page) }
     suspend fun recordPayment(data: Map<String, Any?>)              = call { api.recordPayment(data) }
-    suspend fun scanpayCharge(data: Map<String, Any?>)              = call { api.scanpayCharge(data) }
+    // P2.5: scanpayCharge removed — phantom (no backend payments/scanpay/charge route, no caller).
     suspend fun createScanPayQr(invoiceId: String, amount: Double)  =
         call { api.createScanPayQr(mapOf("invoice_id" to invoiceId, "amount" to amount)) }
     suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) =
@@ -541,13 +541,7 @@ class CrmRepository @Inject constructor(
     // ── Profit simulator ───────────────────────────────────────────────
     suspend fun simulateProfit(data: Map<String, Any?>) = call { api.simulateProfit(data) }
 
-    // ── Send payroll report ─────────────────────────────────────────────
-    suspend fun sendPayrollReport(userId: String, period: String, sendEmail: Boolean = true, sendSms: Boolean = false) =
-        call { api.sendPayrollReport(userId, mapOf(
-            "period"      to period,
-            "send_email"  to sendEmail,
-            "send_sms"    to sendSms
-        ))}
+    // P2.5: sendPayrollReport removed — phantom (payroll/send-report/{userId} has no backend route).
 
     // ── Get single user ─────────────────────────────────────────────────
     suspend fun getUser(id: String) = call { api.getUser(id) }
