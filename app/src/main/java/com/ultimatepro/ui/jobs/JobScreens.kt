@@ -3402,8 +3402,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
     }
 
     // ── Actual save — calls VM directly, customerId must already be resolved ─
-    fun doSaveNow(forceCustomerId: String? = null, sendToTech: Boolean = false) {
-        val resolvedCustomerId = forceCustomerId ?: customerId
+    fun doSaveNow(forceCustomerId: String? = null, sendToTech: Boolean = false, forceNewCustomer: Boolean = false) {
+        // forceNewCustomer (P2.21 "Create New") → resolve to null so a brand-new customer is
+        // created from the parsed fields, never the matched duplicate (avoids state-timing).
+        val resolvedCustomerId = if (forceNewCustomer) null else (forceCustomerId ?: customerId)
         Log.d("DuplicateSheet", "doSaveNow called with customerId: $resolvedCustomerId (forced=$forceCustomerId)")
         vm.clearError()
         // ── Edit mode: update the existing job. title/priority/line_items are intentionally
@@ -3987,6 +3989,15 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 vm.clearDuplicateCustomer()
                 doSaveNow(forceCustomerId = dupInfo.customerId)
             },
+            onCreateNew = {
+                // P2.21: explicit "Create New" — make a brand-new customer from the PARSED
+                // name/phone (not the matched duplicate) and save the job immediately, mirroring
+                // web's primary modal action. Keeps the parsed fields (unlike Cancel).
+                showDuplicateSheet = false
+                customerId = null
+                vm.clearDuplicateCustomer()
+                doSaveNow(forceNewCustomer = true)
+            },
             onCancel = {
                 showDuplicateSheet = false
                 vm.clearDuplicateCustomer()
@@ -4087,8 +4098,9 @@ fun DuplicateCustomerSheet(
     onReturningCustomer: () -> Unit,
     onGoBack: (linkedJobId: String?) -> Unit,
     onFollowUp: (linkedJobId: String?) -> Unit,
+    onCreateNew: () -> Unit,
     onCancel: () -> Unit,
-    onDismiss: () -> Unit = onCancel  // swipe-to-dismiss — defaults to cancel behavior
+    onDismiss: () -> Unit = onCreateNew  // swipe-to-dismiss → create new from parsed fields (keeps fields; P2.1l/P2.21)
 ) {
     var step by remember { mutableStateOf<String?>(null) } // null=choose, "go_back", "follow_up"
     var selectedJobId by remember { mutableStateOf<String?>(null) }
@@ -4177,7 +4189,16 @@ fun DuplicateCustomerSheet(
                 ) { Text("Follow-Up", fontWeight = FontWeight.SemiBold) }
                 Text("Continuation of a previous visit, link to original", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
-                // ── Option 4: Cancel ────────────────────────────────────────
+                // ── Option 4: Create New (P2.21) — brand-new customer from parsed fields ──
+                Button(
+                    onClick = onCreateNew,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape  = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
+                ) { Text("Create New Customer", fontWeight = FontWeight.SemiBold) }
+                Text("Not the same person — create a separate customer from the entered name/phone", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+
+                // ── Option 5: Cancel ────────────────────────────────────────
                 OutlinedButton(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth(),

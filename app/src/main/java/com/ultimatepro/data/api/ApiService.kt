@@ -100,8 +100,7 @@ interface ApiService {
     @PUT("customers/{id}")
     suspend fun updateCustomer(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Customer>
 
-    @DELETE("customers/{id}")
-    suspend fun deleteCustomer(@Path("id") id: String): Response<Map<String, String>>
+    // P2.21: DELETE customers/{id} removed — customers are permanent (backend 403).
 
     @GET("customers/{id}/stats")
     suspend fun getCustomerStats(@Path("id") id: String): Response<Map<String, Any>>

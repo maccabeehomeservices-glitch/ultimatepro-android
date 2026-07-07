@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -166,42 +165,9 @@ class CustomerViewModel @Inject constructor(private val repo: CrmRepository) : V
         }
     }
 
-    // ── Selection mode ────────────────────────────────────────────────────
-    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
-    val selectedIds = _selectedIds.asStateFlow()
-
-    private val _isSelectionMode = MutableStateFlow(false)
-    val isSelectionMode = _isSelectionMode.asStateFlow()
-
-    fun toggleSelection(id: String) {
-        val current = _selectedIds.value
-        _selectedIds.value = if (id in current) current - id else current + id
-        _isSelectionMode.value = _selectedIds.value.isNotEmpty()
-    }
-
-    fun exitSelectionMode() {
-        _selectedIds.value = emptySet()
-        _isSelectionMode.value = false
-    }
-
-    fun deleteCustomer(id: String, onDone: () -> Unit) {
-        viewModelScope.launch {
-            repo.deleteCustomer(id)
-            load()
-            onDone()
-        }
-    }
-
+    // P2.1l Part A: customers are permanent — selection-mode + delete plumbing
+    // removed (P2.21). Only `refresh` remains from this block.
     fun refresh(search: String? = null) = load(search)
-
-    fun deleteSelectedCustomers(onDone: () -> Unit) {
-        viewModelScope.launch {
-            _selectedIds.value.forEach { repo.deleteCustomer(it) }
-            exitSelectionMode()
-            load()
-            onDone()
-        }
-    }
 
     /** Creates customer then POSTs all extra contacts (used by new-customer form only).
      *  Pairs are (value, label). */
@@ -241,13 +207,10 @@ fun CustomerListScreen(
     vm: CustomerViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
-    val isSelectionMode by vm.isSelectionMode.collectAsState()
-    val selectedIds by vm.selectedIds.collectAsState()
     val authVm: com.ultimatepro.ui.auth.AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val perms by authVm.permissions.collectAsState()
     val role by authVm.role.collectAsState()
     var search by remember { mutableStateOf("") }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
     var resumeKey by remember { mutableIntStateOf(0) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -265,33 +228,23 @@ fun CustomerListScreen(
     LaunchedEffect(state.loading) { if (!state.loading && pullState.isRefreshing) pullState.endRefresh() }
 
     Scaffold(topBar = {
-        if (isSelectionMode) {
+        // P2.1l Part A / P2.21: customers are permanent — no selection/bulk-delete mode.
+        Column {
             TopAppBar(
-                title = { Text("${selectedIds.size} selected", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { vm.exitSelectionMode() }) { Icon(Icons.Default.Close, null) }
-                },
-                // P2.1l Part A: customers are permanent — no bulk-delete action.
-                actions = {}
+                title = { Text("Customers", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = onImport) { Icon(Icons.Default.Upload, "Import") }
+                    IconButton(onClick = onNewCustomer) { Icon(Icons.Default.PersonAdd, null) }
+                }
             )
-        } else {
-            Column {
-                TopAppBar(
-                    title = { Text("Customers", fontWeight = FontWeight.Bold) },
-                    actions = {
-                        IconButton(onClick = onImport) { Icon(Icons.Default.Upload, "Import") }
-                        IconButton(onClick = onNewCustomer) { Icon(Icons.Default.PersonAdd, null) }
-                    }
-                )
-                SearchField(
-                    value = search,
-                    onValueChange = { search = it; vm.load(it.ifBlank { null }) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
-                )
-            }
+            SearchField(
+                value = search,
+                onValueChange = { search = it; vm.load(it.ifBlank { null }) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
+            )
         }
     }, floatingActionButton = {
-        if (!isSelectionMode && com.ultimatepro.domain.model.canUi(role, perms, "customers", "edit_self")) {
+        if (com.ultimatepro.domain.model.canUi(role, perms, "customers", "edit_self")) {
             ExtendedFloatingActionButton(
                 onClick = onNewCustomer,
                 icon = { Icon(Icons.Default.PersonAdd, null) },
@@ -309,31 +262,16 @@ fun CustomerListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(state.customers, key = { it.id }) { c ->
-                        val isSelected = c.id in selectedIds
                         Card(
-                            // P2.1l Part A: no long-press multi-select (its only action was delete).
-                            modifier = Modifier.fillMaxWidth().combinedClickable(
-                                onClick = { onCustomer(c.id) }
-                            ),
+                            // P2.1l Part A / P2.21: customers are permanent — plain tap-to-open,
+                            // no long-press multi-select (its only action was delete).
+                            modifier = Modifier.fillMaxWidth().clickable { onCustomer(c.id) },
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else
-                                    MaterialTheme.colorScheme.surface
-                            )
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                if (isSelectionMode) {
-                                    Checkbox(
-                                        checked = isSelected,
-                                        onCheckedChange = { vm.toggleSelection(c.id) }
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                } else {
-                                    AvatarCircle(c.initials, AppColors.Blue)
-                                    Spacer(Modifier.width(12.dp))
-                                }
+                                AvatarCircle(c.initials, AppColors.Blue)
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(c.fullName, fontWeight = FontWeight.SemiBold)
                                     c.phone?.let {

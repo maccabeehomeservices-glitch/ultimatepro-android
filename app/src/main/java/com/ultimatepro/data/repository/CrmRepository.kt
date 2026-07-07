@@ -192,7 +192,7 @@ class CrmRepository @Inject constructor(
     suspend fun createCustomer(data: Map<String, Any?>)                = call { api.createCustomer(data) }
     suspend fun getCustomer(id: String)                                = call { api.getCustomer(id) }
     suspend fun updateCustomer(id: String, data: Map<String, Any?>)   = call { api.updateCustomer(id, data) }
-    suspend fun deleteCustomer(id: String)                            = call { api.deleteCustomer(id) }
+    // P2.21: deleteCustomer removed — customers are permanent (backend returns 403).
     suspend fun getCustomerStats(id: String)                          = call { api.getCustomerStats(id) }
 
     @Suppress("UNCHECKED_CAST")
