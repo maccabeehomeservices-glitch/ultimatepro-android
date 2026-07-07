@@ -1099,7 +1099,9 @@ private fun JobListCard(job: Job, onClick: () -> Unit, onRestore: () -> Unit) {
                         // TZ display fix: render the list time in the job's zone (same helper as
                         // Calendar + Job Detail), not the old SimpleDateFormat device-local path.
                         val schedText = if (job.scheduled_start.isNullOrBlank()) "Unscheduled"
-                            else formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a zzz")
+                            else job.scheduled_end?.takeIf { it != job.scheduled_start }?.let { end ->  // P2.19 window
+                                "${formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a")} – ${formatJobInstant(end, job.effective_timezone, "h:mm a zzz")}"
+                            } ?: formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a zzz")
                         Text(
                             schedText,
                             style = MaterialTheme.typography.labelMedium,
@@ -1747,7 +1749,11 @@ fun JobDetailScreen(
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d, yyyy"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                            Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a zzz"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // P2.19: arrival window when a distinct end exists.
+                            val jobTimeText = job.scheduled_end?.takeIf { it != job.scheduled_start }?.let { end ->
+                                "${formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a")} – ${formatJobInstant(end, job.effective_timezone, "h:mm a zzz")}"
+                            } ?: formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a zzz")
+                            Text(jobTimeText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -3278,10 +3284,13 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
     // ── Schedule ───────────────────────────────────────────────────────────
     var schedDate  by remember { mutableStateOf("") }
     var schedTime  by remember { mutableStateOf("") }
+    var schedEndTime by remember { mutableStateOf("") }   // P2.19: optional arrival-window "to"
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
     val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = false)
+    val endTimePickerState = rememberTimePickerState(initialHour = 10, initialMinute = 0, is24Hour = false)
 
     // ── Assignment ─────────────────────────────────────────────────────────
     var assignCat             by remember { mutableStateOf("self") }
@@ -3348,6 +3357,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     job.scheduled_start?.let { start ->
                         schedDate = formatJobInstant(start, job.effective_timezone, "yyyy-MM-dd")
                         schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
+                        // P2.19: prefill the window "to" time when a distinct end exists.
+                        job.scheduled_end?.takeIf { it != start }?.let { end ->
+                            schedEndTime = formatJobInstant(end, job.effective_timezone, "HH:mm")
+                        }
                     }
                     sourceType = job.source_type; jobSourceId = job.job_source_id; adChannelId = job.ad_channel_id
                     // P2.16 F2: resolve the dropdown label from the real source fields (job.source
@@ -3423,6 +3436,9 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 schedDate.isBlank() -> null
                 else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
             }
+            // P2.19: arrival-window end — only when date + start + end all set.
+            val scheduledEndEdit = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
+                "${schedDate}T${schedEndTime}" else null
             val srcLabelEdit = buildString {
                 if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
                 if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
@@ -3435,6 +3451,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "zip"                     to zip.ifBlank { null },
                 "notes"                   to notes.ifBlank { null },
                 "scheduled_local"         to scheduledEdit,
+                "scheduled_end_local"     to scheduledEndEdit,
                 "lat"                     to lat,
                 "lng"                     to lng,
                 "assigned_to"             to assignedTo,
@@ -3454,6 +3471,9 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
             schedDate.isBlank() -> null
             else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
         }
+        // P2.19: arrival-window end — only when date + start + end all set.
+        val scheduledEnd = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
+            "${schedDate}T${schedEndTime}" else null
         val srcLabel = buildString {
             if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
             if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
@@ -3469,6 +3489,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "zip"                  to zip.ifBlank { null },
                 "notes"                    to notes.ifBlank { null },
                 "scheduled_local"          to scheduled,
+                "scheduled_end_local"      to scheduledEnd,
                 "lat"                      to lat,
                 "lng"                      to lng,
                 "assigned_to"              to assignedTo,
@@ -3860,13 +3881,45 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
+            // P2.19: optional arrival-window "to" time (enabled once a start time is set)
+            OutlinedTextField(
+                value = if (schedEndTime.isNotBlank()) formatDisplayTime(schedEndTime) else "",
+                onValueChange = {},
+                label = { Text("Arrival Window End (optional)") },
+                placeholder = { Text(if (schedTime.isBlank()) "Set a time first" else "Tap to select end time") },
+                readOnly = true,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().clickable(enabled = schedTime.isNotBlank()) { showEndTimePicker = true },
+                shape = RoundedCornerShape(12.dp),
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (schedEndTime.isNotBlank()) {
+                            IconButton(onClick = { schedEndTime = "" }, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Icon(Icons.Default.Schedule, null)
+                    }
+                },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor        = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor      = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor       = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledTrailingIconColor= MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
             if (schedDate.isNotBlank() || schedTime.isNotBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Event, null, tint = AppColors.Blue, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     val display = buildString {
                         if (schedDate.isNotBlank()) append(formatDisplayDate(schedDate))
-                        if (schedTime.isNotBlank()) { if (isNotBlank()) append(" at "); append(formatDisplayTime(schedTime)) }
+                        if (schedTime.isNotBlank()) {
+                            if (isNotBlank()) append(" at "); append(formatDisplayTime(schedTime))
+                            if (schedEndTime.isNotBlank()) append(" – ${formatDisplayTime(schedEndTime)}")  // P2.19 window
+                        }
                     }
                     Text(display, style = MaterialTheme.typography.bodySmall, color = AppColors.Blue, fontWeight = FontWeight.Medium)
                 }
@@ -3960,6 +4013,28 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                         TextButton(onClick = {
                             schedTime = "%02d:%02d".format(timePickerState.hour, timePickerState.minute)
                             showTimePicker = false
+                        }) { Text("OK") }
+                    }
+                }
+            }
+        }
+    }
+
+    // P2.19: arrival-window "to" time picker
+    if (showEndTimePicker) {
+        Dialog(onDismissRequest = { showEndTimePicker = false }) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
+                Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Arrival Window End", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(20.dp))
+                    TimePicker(state = endTimePickerState)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showEndTimePicker = false }) { Text("Cancel") }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            schedEndTime = "%02d:%02d".format(endTimePickerState.hour, endTimePickerState.minute)
+                            showEndTimePicker = false
                         }) { Text("OK") }
                     }
                 }
