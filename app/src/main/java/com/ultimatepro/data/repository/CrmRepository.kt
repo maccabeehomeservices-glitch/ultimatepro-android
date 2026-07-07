@@ -39,7 +39,10 @@ class CrmRepository @Inject constructor(
         return try {
             val tokenBefore = store.getAccessToken()
             var resp = block()
-            if (resp.code() == 401 && !isAuthPath(resp)) {
+            // Only treat a 401 as an EXPIRED SESSION when we actually had a token — otherwise a
+            // fresh launch's unauthenticated probe (e.g. /me before login) would fire expire()
+            // and, if it lands right after the user signs in, bounce them back to login (a race).
+            if (resp.code() == 401 && !isAuthPath(resp) && !tokenBefore.isNullOrBlank()) {
                 if (tryRefresh(tokenBefore)) resp = block()
                 if (resp.code() == 401) {
                     store.clear()
