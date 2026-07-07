@@ -993,7 +993,7 @@ private fun ItemFormDialog(
     var desc           by remember { mutableStateOf(item?.description ?: "") }
     var price          by remember { mutableStateOf(item?.unit_price?.let { "%.2f".format(it) } ?: "") }
     var costPrice      by remember { mutableStateOf(item?.cost_price?.let { "%.2f".format(it) } ?: "") }
-    var itemType       by remember { mutableStateOf(item?.item_type ?: "service") }
+    var itemType       by remember { mutableStateOf(if (item?.item_type == "material" || item?.item_type == "part") "material" else "labor") }  // P2.14 GAP 3: normalize legacy → labor/material
     var taxable        by remember { mutableStateOf(item?.taxable ?: false) }
     var categoryId     by remember { mutableStateOf(item?.category_id) }
     var catExpanded    by remember { mutableStateOf(false) }
@@ -1066,9 +1066,10 @@ private fun ItemFormDialog(
                     OutlinedTextField(price,     { price     = it }, label = { Text("Price")      }, prefix = { Text("$") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp))
                     OutlinedTextField(costPrice, { costPrice = it }, label = { Text("Cost")       }, prefix = { Text("$") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp))
                 }
-                // Type chips — 2×2 grid so "Discount" is never cut off
+                // P2.14 GAP 3: a pricebook item is Labor or Material (service/discount are
+                // estimate-line concerns, not pricebook item types).
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(listOf("service", "material"), listOf("labor", "discount")).forEach { rowTypes ->
+                    listOf(listOf("labor", "material")).forEach { rowTypes ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             rowTypes.forEach { t ->
                                 FilterChip(
