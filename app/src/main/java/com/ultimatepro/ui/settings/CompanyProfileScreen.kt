@@ -56,6 +56,7 @@ data class CompanyProfileState(
     val state:         String   = "",
     val zip:           String   = "",
     val tagline:       String   = "",
+    val defaultTerms:  String   = "",
     val logoUrl:       String   = "",
     val ucmId:         String   = "",
     val snack:         String?  = null,
@@ -89,6 +90,7 @@ class CompanyProfileViewModel @Inject constructor(
                         state    = c.state ?: "",
                         zip      = c.zip ?: "",
                         tagline  = c.tagline ?: "",
+                        defaultTerms = c.default_terms ?: "",
                         logoUrl  = c.logo_url ?: "",
                         ucmId    = c.ultimatecrm_id ?: "",
                     )}
@@ -110,6 +112,7 @@ class CompanyProfileViewModel @Inject constructor(
                 "state"   -> s.copy(state = value)
                 "zip"     -> s.copy(zip = value)
                 "tagline" -> s.copy(tagline = value)
+                "default_terms" -> s.copy(defaultTerms = value)
                 else      -> s
             }
         }
@@ -148,6 +151,7 @@ class CompanyProfileViewModel @Inject constructor(
                 "state"    to s.state.trim(),
                 "zip"      to s.zip.trim(),
                 "tagline"  to s.tagline.trim(),
+                "default_terms" to s.defaultTerms.trim(),
                 "logo_url" to s.logoUrl,
             )
             when (repo.updateCompany(data)) {
@@ -358,6 +362,10 @@ fun CompanyProfileScreen(
             CompanyField("Phone", s.phone, { vm.setField("phone", it) }, keyboardType = KeyboardType.Phone)
             CompanyField("Email", s.email, { vm.setField("email", it) }, keyboardType = KeyboardType.Email)
             CompanyField("Website", s.website, { vm.setField("website", it) }, keyboardType = KeyboardType.Uri)
+
+            // ── DOCUMENT DEFAULTS ───────────────────────────────────────
+            SectionLabel("DEFAULT TERMS & CONDITIONS")
+            CompanyField("Terms auto-filled into new estimates & invoices", s.defaultTerms, { vm.setField("default_terms", it) }, maxLines = 6)
 
             // ── ADDRESS ─────────────────────────────────────────────────
             SectionLabel("ADDRESS")

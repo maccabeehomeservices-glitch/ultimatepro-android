@@ -423,6 +423,14 @@ fun InvoiceDetailScreen(
                     }
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Balance Due", fontWeight = FontWeight.Bold); Text(formatMoney(i.balance_due), fontWeight = FontWeight.Bold, color = if (i.balance_due > 0) AppColors.Red else AppColors.Green) }
                 } }
+                // Notes
+                i.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                    item { CRMCard { SectionLabel("NOTES"); Text(notes, style = MaterialTheme.typography.bodyMedium) } }
+                }
+                // Terms (P2.17 PART 2 — company default or per-document override)
+                i.terms?.takeIf { it.isNotBlank() }?.let { terms ->
+                    item { CRMCard { SectionLabel("TERMS"); Text(terms, style = MaterialTheme.typography.bodyMedium) } }
+                }
                 // Actions
                 item { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     when (i.status) {
