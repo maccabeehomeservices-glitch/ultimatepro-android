@@ -52,6 +52,15 @@ class TokenStore @Inject constructor(
         }
     }
 
+    // P2.2 — refresh the access token (and rotated refresh token) in place, keeping the
+    // rest of the session. Used by the 401 → refresh retry path.
+    suspend fun updateTokens(accessToken: String, refreshToken: String?) {
+        ctx.dataStore.edit { p ->
+            p[KEY_ACCESS] = accessToken
+            if (!refreshToken.isNullOrBlank()) p[KEY_REFRESH] = refreshToken
+        }
+    }
+
     suspend fun getAccessToken()  = ctx.dataStore.data.map { it[KEY_ACCESS]  }.first()
     suspend fun getRefreshToken() = ctx.dataStore.data.map { it[KEY_REFRESH] }.first()
     suspend fun getUserJson()     = ctx.dataStore.data.map { it[KEY_USER]    }.first()

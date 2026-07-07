@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
+import com.ultimatepro.data.session.SessionManager
 import com.ultimatepro.domain.model.RegisterRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -19,7 +20,10 @@ data class AuthState(
 )
 
 @HiltViewModel
-class AuthViewModel @Inject constructor(private val repo: CrmRepository) : ViewModel() {
+class AuthViewModel @Inject constructor(
+    private val repo: CrmRepository,
+    private val sessionManager: SessionManager
+) : ViewModel() {
 
     private val _state   = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -38,6 +42,13 @@ class AuthViewModel @Inject constructor(private val repo: CrmRepository) : ViewM
 
     init {
         viewModelScope.launch { _loggedIn.value = repo.isLoggedIn() }
+        // P2.2: when the network layer signals an unrecoverable 401 (e.g. a reseed-invalidated
+        // token whose refresh also fails), drop to logged-out → App() routes to the login screen.
+        viewModelScope.launch {
+            sessionManager.expired.collect { expired ->
+                if (expired) { _loggedIn.value = false; sessionManager.reset() }
+            }
+        }
         viewModelScope.launch {
             _role.value = repo.getStoredRole()
             // Instant paint from the stored value, then refresh from /me (mirrors web,

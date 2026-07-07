@@ -5,6 +5,7 @@ import com.ultimatepro.data.api.ApiService
 import com.ultimatepro.data.api.NetworkClient
 import com.ultimatepro.data.local.TokenStore
 import com.ultimatepro.data.repository.CrmRepository
+import com.ultimatepro.data.session.SessionManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,6 +25,6 @@ object AppModule {
         NetworkClient.create(tokenStore)
 
     @Provides @Singleton
-    fun provideRepository(api: ApiService, tokenStore: TokenStore): CrmRepository =
-        CrmRepository(api, tokenStore)
+    fun provideRepository(api: ApiService, tokenStore: TokenStore, sessionManager: SessionManager): CrmRepository =
+        CrmRepository(api, tokenStore, sessionManager)
 }

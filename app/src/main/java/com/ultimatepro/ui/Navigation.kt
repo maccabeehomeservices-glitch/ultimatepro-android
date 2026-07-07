@@ -192,6 +192,21 @@ fun App(
             activity.intent.removeExtra("navigate_to")
         }
 
+        // P2.2: auto-logout. When the session dies at runtime (a 401 clears the token and
+        // trips SessionManager → loggedIn=false), route to the login screen and clear the
+        // back stack. Guarded on a true→false transition so it never fires on the initial
+        // launch or the login→dashboard flow.
+        val wasLoggedIn = remember { mutableStateOf(loggedIn) }
+        LaunchedEffect(loggedIn) {
+            if (wasLoggedIn.value && !loggedIn) {
+                navController.navigate(Route.LOGIN) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+            wasLoggedIn.value = loggedIn
+        }
+
         NavHost(
             navController    = navController,
             startDestination = if (loggedIn) Route.DASHBOARD else Route.LOGIN,

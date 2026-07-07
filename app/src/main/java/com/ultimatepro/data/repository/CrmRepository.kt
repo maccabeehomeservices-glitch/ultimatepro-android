@@ -3,7 +3,10 @@ package com.ultimatepro.data.repository
 import com.google.gson.Gson
 import com.ultimatepro.data.api.ApiService
 import com.ultimatepro.data.local.TokenStore
+import com.ultimatepro.data.session.SessionManager
 import com.ultimatepro.domain.model.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -17,29 +20,67 @@ sealed class Result<out T> {
     data class Error(val message: String, val code: Int = 0) : Result<Nothing>()
 }
 
-// Central wrapper that converts Retrofit responses
-private suspend fun <T> call(block: suspend () -> Response<T>): Result<T> = try {
-    val resp = block()
-    if (resp.isSuccessful) {
-        Result.Success(resp.body()!!)
-    } else {
-        val errorStr = resp.errorBody()?.string() ?: "Unknown error"
-        // Try to extract "error" field from JSON
-        val msg = try {
-            Gson().fromJson(errorStr, Map::class.java)["error"]?.toString() ?: errorStr
-        } catch (e: Exception) { errorStr }
-        Result.Error(msg, resp.code())
-    }
-} catch (e: Exception) {
-    Result.Error(e.message ?: "Network error — check your connection")
-}
-
 @Singleton
 class CrmRepository @Inject constructor(
     private val api: ApiService,
-    private val store: TokenStore
+    private val store: TokenStore,
+    private val sessionManager: SessionManager
 ) {
     private val gson = Gson()
+    private val refreshMutex = Mutex()
+
+    // Central wrapper that converts Retrofit responses. P2.2: a 401 on a non-auth endpoint
+    // triggers ONE token-refresh attempt; if that fails (e.g. the stored JWT was invalidated
+    // by a staging reseed → the user no longer exists → refresh also 401s), the session is
+    // cleared and SessionManager.expire() fires so the app routes to the login screen instead
+    // of the old dead "Retry" loop. Auth endpoints (login/register/refresh) are excluded so a
+    // wrong-password 401 is never treated as an expired session.
+    private suspend fun <T> call(block: suspend () -> Response<T>): Result<T> {
+        return try {
+            val tokenBefore = store.getAccessToken()
+            var resp = block()
+            if (resp.code() == 401 && !isAuthPath(resp)) {
+                if (tryRefresh(tokenBefore)) resp = block()
+                if (resp.code() == 401) {
+                    store.clear()
+                    sessionManager.expire()
+                    return Result.Error("Your session has expired. Please sign in again.", 401)
+                }
+            }
+            if (resp.isSuccessful) {
+                Result.Success(resp.body()!!)
+            } else {
+                val errorStr = resp.errorBody()?.string() ?: "Unknown error"
+                val msg = try {
+                    Gson().fromJson(errorStr, Map::class.java)["error"]?.toString() ?: errorStr
+                } catch (e: Exception) { errorStr }
+                Result.Error(msg, resp.code())
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error — check your connection")
+        }
+    }
+
+    private fun isAuthPath(resp: Response<*>): Boolean {
+        val p = resp.raw().request.url.encodedPath
+        return p.endsWith("/auth/login") || p.endsWith("/auth/register") || p.endsWith("/auth/refresh")
+    }
+
+    // Serialize refreshes so concurrent 401s don't each rotate the refresh token. If another
+    // call already refreshed (access token changed), reuse it instead of refreshing again.
+    private suspend fun tryRefresh(tokenBefore: String?): Boolean = refreshMutex.withLock {
+        val current = store.getAccessToken()
+        if (!tokenBefore.isNullOrBlank() && !current.isNullOrBlank() && current != tokenBefore) return@withLock true
+        val rt = store.getRefreshToken()?.takeIf { it.isNotBlank() } ?: return@withLock false
+        try {
+            val r = api.refresh(mapOf("refresh_token" to rt))
+            val body = r.body()
+            val newAccess = body?.get("token")
+            if (r.isSuccessful && !newAccess.isNullOrBlank()) {
+                store.updateTokens(newAccess, body["refresh_token"]); true
+            } else false
+        } catch (e: Exception) { false }
+    }
 
     // ── Auth ─────────────────────────────────────────────────────────────
 
