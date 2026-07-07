@@ -133,7 +133,7 @@ data class PayrollState(
     val jobReportTotals: Map<String, Any> = emptyMap(),
     val selectedTechReport: Map<String, Any?> = emptyMap(),
     val techs: List<User> = emptyList(),
-    val period: String = "week",
+    val period: String = "month",   // P2.20: match web Payroll's month-to-date default (identical day-window across platforms)
     val customFrom: String = "",
     val customTo: String = "",
     val error: String? = null,
@@ -152,7 +152,7 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         viewModelScope.launch {
             val techsResult = repo.getTechnicians()
             _state.update { it.copy(techs = (techsResult as? Result.Success)?.data ?: emptyList()) }
-            loadSummary("week")
+            loadSummary("month")   // P2.20: match web Payroll month-to-date default
         }
     }
 
@@ -329,7 +329,7 @@ fun PayrollScreen(
     val perms by authVm.permissions.collectAsState()
     val role by authVm.role.collectAsState()
     var tab       by remember { mutableIntStateOf(0) }
-    var period    by remember { mutableStateOf("week") }
+    var period    by remember { mutableStateOf("month") }   // P2.20: match VM + web month-to-date default
     var showPeriod by remember { mutableStateOf(false) }
     var showMarkPaid by remember { mutableStateOf(false) }
     val snack     = remember { SnackbarHostState() }
