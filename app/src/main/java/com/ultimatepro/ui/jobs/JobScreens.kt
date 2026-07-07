@@ -3344,7 +3344,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                         schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
                     }
                     sourceType = job.source_type; jobSourceId = job.job_source_id; adChannelId = job.ad_channel_id
-                    selectedSourceName = job.source?.ifBlank { null } ?: "My Company"
+                    // P2.16 F2: resolve the dropdown label from the real source fields (job.source
+                    // is null for ad-channel/contact jobs → it used to wrongly show "My Company").
+                    // Mirrors the JobDetail source pill: job_source_name → ad_channel_name → My Company.
+                    selectedSourceName = job.job_source_name ?: job.ad_channel_name ?: job.ad_channel_custom ?: "My Company"
                 }
             }
         }
