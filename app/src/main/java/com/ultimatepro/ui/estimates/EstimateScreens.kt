@@ -1594,10 +1594,9 @@ fun PresentTiersScreen(
                             val mats = tier.lineItems.filter { it.item_type == "material" }
                             val all  = svcs + mats
                             all.forEach { li ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(li.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                    Text(formatMoney(li.total), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                                }
+                                // P2.17 PART 1 — show item image + description + SKU on the
+                                // in-person present screen (reuse the detail GBB row), not just name+price.
+                                TierDetailItemRow(li)
                                 HorizontalDivider()
                             }
                             Spacer(Modifier.height(10.dp))
