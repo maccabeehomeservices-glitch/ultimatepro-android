@@ -34,6 +34,21 @@ import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
 
+// P2.23: the backend returns SUM(numeric)/pct fields as JSON STRINGS ("780.00", "40.00",
+// "3"). `as? Number` was null on strings → every money/commission field defaulted to 0
+// (Reports/Payroll showed $0 despite correct backend data). These parse String OR Number.
+private fun numD(v: Any?): Double = when (v) {
+    is Number -> v.toDouble()
+    is String -> v.toDoubleOrNull() ?: 0.0
+    else -> 0.0
+}
+private fun numI(v: Any?): Int = numD(v).toInt()
+private fun numDN(v: Any?): Double? = when (v) {   // nullable: null = field absent
+    is Number -> v.toDouble()
+    is String -> v.toDoubleOrNull()
+    else -> null
+}
+
 // ── Data classes ────────────────────────────────────────────────────────────
 
 data class TechPaySummary(
@@ -171,12 +186,12 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
                     _state.update { it.copy(
                         summaryLoading  = false,
                         techSummaries   = techList.map { parseTechSummary(it) },
-                        totalSales      = (totals["total_sales"] as? Number)?.toDouble() ?: 0.0,
-                        totalMaterial   = (totals["total_material"] as? Number)?.toDouble() ?: 0.0,
-                        totalSourceCost = (totals["total_source_cost"] as? Number)?.toDouble() ?: 0.0,
-                        totalTechCost   = (totals["total_tech_cost"] as? Number)?.toDouble() ?: 0.0,
-                        totalCompanyProfit = (totals["total_company_profit"] as? Number)?.toDouble() ?: 0.0,
-                        totalJobs       = (totals["total_jobs"] as? Number)?.toInt() ?: 0,
+                        totalSales      = numD(totals["total_sales"]),
+                        totalMaterial   = numD(totals["total_material"]),
+                        totalSourceCost = numD(totals["total_source_cost"]),
+                        totalTechCost   = numD(totals["total_tech_cost"]),
+                        totalCompanyProfit = numD(totals["total_company_profit"]),
+                        totalJobs       = numI(totals["total_jobs"]),
                         loading         = false,
                     )}
                 }
@@ -243,7 +258,7 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
             val s = _state.value
             when (val r = repo.markEarningsPaid(buildPeriodParams(s.period, s.customFrom, s.customTo))) {
                 is Result.Success -> {
-                    val n = (r.data["count"] as? Number)?.toInt() ?: 0
+                    val n = numI(r.data["count"])
                     _state.update { it.copy(message = "Marked $n earning(s) paid") }
                     refreshCurrentPeriod()
                 }
@@ -273,16 +288,16 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         first_name     = m["first_name"]?.toString() ?: "",
         last_name      = m["last_name"]?.toString() ?: "",
         color          = m["color"]?.toString() ?: "#1565C0",
-        hourly_rate    = (m["hourly_rate"] as? Number)?.toDouble() ?: 0.0,
-        commission_pct = (m["commission_pct"] as? Number)?.toDouble() ?: 0.0,
-        jobs_count     = (m["jobs_count"] as? Number)?.toInt() ?: 0,
-        total_sales    = (m["total_sales"] as? Number)?.toDouble() ?: 0.0,
-        total_material = (m["total_material"] as? Number)?.toDouble() ?: 0.0,
-        gross_earnings = (m["gross_earnings"] as? Number)?.toDouble() ?: 0.0,
-        total_hours    = (m["total_hours"] as? Number)?.toDouble() ?: 0.0,
-        pending_bonuses = (m["pending_bonuses"] as? Number)?.toDouble() ?: 0.0,
-        pending_deductions = (m["pending_deductions"] as? Number)?.toDouble() ?: 0.0,
-        balance_owed   = (m["balance_owed"] as? Number)?.toDouble() ?: 0.0
+        hourly_rate    = numD(m["hourly_rate"]),
+        commission_pct = numD(m["commission_pct"]),
+        jobs_count     = numI(m["jobs_count"]),
+        total_sales    = numD(m["total_sales"]),
+        total_material = numD(m["total_material"]),
+        gross_earnings = numD(m["gross_earnings"]),
+        total_hours    = numD(m["total_hours"]),
+        pending_bonuses = numD(m["pending_bonuses"]),
+        pending_deductions = numD(m["pending_deductions"]),
+        balance_owed   = numD(m["balance_owed"])
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -299,13 +314,13 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         state          = m["state"]?.toString() ?: "",
         tech_name      = m["tech_name"]?.toString(),
         tech_color     = m["tech_color"]?.toString(),
-        total_sale     = (m["total_sale"] as? Number)?.toDouble() ?: 0.0,
-        material_cost  = (m["material_cost"] as? Number)?.toDouble() ?: 0.0,
-        net_profit     = (m["net_profit"] as? Number)?.toDouble() ?: 0.0,
-        source_cost    = (m["source_cost"] as? Number)?.toDouble() ?: 0.0,
-        tech_profit    = (m["tech_profit"] as? Number)?.toDouble() ?: 0.0,
-        company_profit = (m["company_profit"] as? Number)?.toDouble() ?: 0.0,
-        hours_worked   = (m["hours_worked"] as? Number)?.toDouble() ?: 0.0,
+        total_sale     = numD(m["total_sale"]),
+        material_cost  = numD(m["material_cost"]),
+        net_profit     = numD(m["net_profit"]),
+        source_cost    = numD(m["source_cost"]),
+        tech_profit    = numD(m["tech_profit"]),
+        company_profit = numD(m["company_profit"]),
+        hours_worked   = numD(m["hours_worked"]),
         pay_type       = m["pay_type"]?.toString() ?: "commission",
         earning_paid   = m["earning_paid"] as? Boolean ?: false,
         invoice_number = m["invoice_number"]?.toString()
@@ -611,11 +626,11 @@ private fun JobReportTab(state: PayrollState, vm: PayrollViewModel, period: Stri
                     Text("${state.jobReport.size} Jobs", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        MiniStat("Sales",    formatMoney((totals["total_sales"] as? Number)?.toDouble() ?: 0.0), AppColors.Blue)
-                        MiniStat("Material", formatMoney((totals["total_material"] as? Number)?.toDouble() ?: 0.0), AppColors.Slate)
-                        MiniStat("Source",   formatMoney((totals["total_source_cost"] as? Number)?.toDouble() ?: 0.0), AppColors.Orange)
-                        MiniStat("Tech",     formatMoney((totals["total_tech_profit"] as? Number)?.toDouble() ?: 0.0), AppColors.Purple)
-                        MiniStat("Company",  formatMoney((totals["total_company_profit"] as? Number)?.toDouble() ?: 0.0), AppColors.Green)
+                        MiniStat("Sales",    formatMoney(numD(totals["total_sales"])), AppColors.Blue)
+                        MiniStat("Material", formatMoney(numD(totals["total_material"])), AppColors.Slate)
+                        MiniStat("Source",   formatMoney(numD(totals["total_source_cost"])), AppColors.Orange)
+                        MiniStat("Tech",     formatMoney(numD(totals["total_tech_profit"])), AppColors.Purple)
+                        MiniStat("Company",  formatMoney(numD(totals["total_company_profit"])), AppColors.Green)
                     }
                 }
             }
@@ -820,7 +835,7 @@ fun TechReportScreen(
     val bonuses = (report["bonuses"] as? List<Map<String, Any>>) ?: emptyList()
     @Suppress("UNCHECKED_CAST")
     val deducts = (report["deductions"] as? List<Map<String, Any>>) ?: emptyList()
-    val allTimeBalance = (report["all_time_balance"] as? Number)?.toDouble() ?: 0.0
+    val allTimeBalance = numD(report["all_time_balance"])
     val techName = tech?.let { "${it["first_name"]} ${it["last_name"]}" } ?: "Technician"
 
     Scaffold(topBar = {
@@ -873,23 +888,23 @@ fun TechReportScreen(
                         Text("Period Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            FinStat("Jobs",       "${(summary?.get("jobs_count") as? Number)?.toInt() ?: 0}", AppColors.Blue)
-                            FinStat("Total Sales", formatMoney((summary?.get("total_sales") as? Number)?.toDouble() ?: 0.0), AppColors.Blue)
-                            FinStat("Hours",      String.format("%.1f", (summary?.get("total_hours") as? Number)?.toDouble() ?: 0.0), AppColors.Slate)
+                            FinStat("Jobs",       "${numI(summary?.get("jobs_count"))}", AppColors.Blue)
+                            FinStat("Total Sales", formatMoney(numD(summary?.get("total_sales"))), AppColors.Blue)
+                            FinStat("Hours",      String.format("%.1f", numD(summary?.get("total_hours"))), AppColors.Slate)
                         }
                         Spacer(Modifier.height(10.dp))
                         HorizontalDivider()
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            FinStat("Gross Earnings", formatMoney((summary?.get("gross_earnings") as? Number)?.toDouble() ?: 0.0), AppColors.Purple)
-                            FinStat("+ Bonuses",      "+${formatMoney((summary?.get("bonus_total") as? Number)?.toDouble() ?: 0.0)}", AppColors.Green)
-                            FinStat("- Deductions",   "-${formatMoney((summary?.get("deduction_total") as? Number)?.toDouble() ?: 0.0)}", AppColors.Red)
+                            FinStat("Gross Earnings", formatMoney(numD(summary?.get("gross_earnings"))), AppColors.Purple)
+                            FinStat("+ Bonuses",      "+${formatMoney(numD(summary?.get("bonus_total")))}", AppColors.Green)
+                            FinStat("- Deductions",   "-${formatMoney(numD(summary?.get("deduction_total")))}", AppColors.Red)
                         }
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
                             Text("Net Payout This Period", fontWeight = FontWeight.Bold)
-                            Text(formatMoney((summary?.get("net_payout") as? Number)?.toDouble() ?: 0.0),
+                            Text(formatMoney(numD(summary?.get("net_payout"))),
                                 fontWeight = FontWeight.Bold, fontSize = 20.sp, color = AppColors.Green)
                         }
                         // Timesheet hours for this period
@@ -942,15 +957,15 @@ fun TechReportScreen(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(4.dp))
-                                    Text(formatMoney((j["total_sale"] as? Number)?.toDouble() ?: 0.0),
+                                    Text(formatMoney(numD(j["total_sale"])),
                                         fontWeight = FontWeight.SemiBold, color = AppColors.Blue)
-                                    Text("Profit: ${formatMoney((j["profit"] as? Number)?.toDouble() ?: 0.0)}",
+                                    Text("Profit: ${formatMoney(numD(j["profit"]))}",
                                         style = MaterialTheme.typography.bodySmall, color = AppColors.Purple)
                                     j["job_source"]?.let { StatusBadge(it.toString(), AppColors.Accent, small = true) }
                                 }
                             }
-                            val commPct = (j["commission_pct"] as? Number)?.toDouble()
-                            val resolvedPct = (j["resolved_commission_pct"] as? Number)?.toDouble()
+                            val commPct = numDN(j["commission_pct"])
+                            val resolvedPct = numDN(j["resolved_commission_pct"])
                             if (commPct != null && commPct > 0) {
                                 Spacer(Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -969,9 +984,9 @@ fun TechReportScreen(
                                     }
                                 }
                             }
-                            if ((j["pay_type"]?.toString() == "hourly") && (j["hours_worked"] as? Number)?.toDouble() ?: 0.0 > 0) {
+                            if ((j["pay_type"]?.toString() == "hourly") && numD(j["hours_worked"]) > 0) {
                                 Spacer(Modifier.height(4.dp))
-                                Text("${String.format("%.2f", (j["hours_worked"] as? Number)?.toDouble() ?: 0.0)} hours",
+                                Text("${String.format("%.2f", numD(j["hours_worked"]))} hours",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -995,7 +1010,7 @@ fun TechReportScreen(
                                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            Text("+${formatMoney((b["amount"] as? Number)?.toDouble() ?: 0.0)}",
+                            Text("+${formatMoney(numD(b["amount"]))}",
                                 fontWeight = FontWeight.Bold, color = AppColors.Green)
                         }
                     }
@@ -1016,7 +1031,7 @@ fun TechReportScreen(
                                 Text(d["deduction_type"]?.toString()?.replaceFirstChar { it.uppercase() } ?: "",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("-${formatMoney((d["amount"] as? Number)?.toDouble() ?: 0.0)}",
+                            Text("-${formatMoney(numD(d["amount"]))}",
                                 fontWeight = FontWeight.Bold, color = AppColors.Red)
                         }
                     }

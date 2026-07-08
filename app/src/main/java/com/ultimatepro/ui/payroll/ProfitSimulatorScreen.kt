@@ -263,7 +263,7 @@ private fun SimulatorResultCard(r: Map<String, Any>) {
         else                -> AppColors.Blue
     }
 
-    fun d(key: String) = (r[key] as? Number)?.toDouble() ?: 0.0
+    fun d(key: String): Double = when (val v = r[key]) { is Number -> v.toDouble(); is String -> v.toDoubleOrNull() ?: 0.0; else -> 0.0 }  // P2.23 string-or-number
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(2.dp, scenarioColor.copy(alpha = 0.4f))) {
