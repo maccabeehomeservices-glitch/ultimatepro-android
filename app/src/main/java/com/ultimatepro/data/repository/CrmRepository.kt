@@ -288,19 +288,25 @@ class CrmRepository @Inject constructor(
         return when (val r = call { api.getJobCompletion(id) }) {
             is Result.Success -> {
                 val m = r.data
+                // P2.23 F-a: the backend returns numeric fields as JSON STRINGS ("56.00"), so the
+                // old `as? Double` yielded null → 0.0 (the $56 tech-paid part read back as $0, which
+                // is what looked like a "part not captured" write-path gap). Parse String OR Number.
+                fun d(k: String): Double = when (val v = m?.get(k)) {
+                    is Number -> v.toDouble(); is String -> v.toDoubleOrNull() ?: 0.0; else -> 0.0
+                }
                 // Backend returns {} when no completion record exists
                 if (m == null || m["id"] == null) Result.Success(null)
                 else Result.Success(com.ultimatepro.domain.model.JobCompletionDetails(
                     id                   = m["id"] as? String ?: "",
                     job_id               = m["job_id"] as? String ?: "",
                     parts_paid_by        = m["parts_paid_by"] as? String,
-                    parts_amount         = (m["parts_amount"] as? Double) ?: 0.0,
+                    parts_amount         = d("parts_amount"),
                     payment_collected_by = m["payment_collected_by"] as? String,
-                    cc_fee_amount        = (m["cc_fee_amount"] as? Double) ?: 0.0,
+                    cc_fee_amount        = d("cc_fee_amount"),
                     cc_fee_paid_by       = m["cc_fee_paid_by"] as? String,
-                    net_after_deductions = (m["net_after_deductions"] as? Double) ?: 0.0,
-                    sender_earns         = (m["sender_earns"] as? Double) ?: 0.0,
-                    receiver_earns       = (m["receiver_earns"] as? Double) ?: 0.0,
+                    net_after_deductions = d("net_after_deductions"),
+                    sender_earns         = d("sender_earns"),
+                    receiver_earns       = d("receiver_earns"),
                     submitted_by         = m["submitted_by"] as? String,
                     confirmed_by         = m["confirmed_by"] as? String,
                     confirmed_at         = m["confirmed_at"] as? String,
