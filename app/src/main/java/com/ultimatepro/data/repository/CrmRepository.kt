@@ -512,6 +512,16 @@ class CrmRepository @Inject constructor(
     suspend fun getPermissionSchema()                                            = call { api.getPermissionSchema() }
     suspend fun getJobReport(params: Map<String, String>)                        = call { api.getJobReport(params) }
     suspend fun getTechReport(userId: String, params: Map<String, String>)       = call { api.getTechReport(userId, params) }
+    // P2.27 (Bundle 4): new per-actor reports (reference columns, same as web + report PDFs).
+    suspend fun getActorReport(actorType: String, id: String, params: Map<String, String>) = call {
+        when (actorType) {
+            "roster"  -> api.getActorReportRoster(id, params)
+            "source"  -> api.getActorReportSource(id, params)
+            "partner" -> api.getActorReportPartner(id, params)
+            "self"    -> api.getActorReportSelf(params)
+            else       -> api.getActorReportTech(id, params)   // user tech
+        }
+    }
     suspend fun getProfitBySource(params: Map<String, String>)                   = call { api.getProfitBySource(params) }
     suspend fun getProfitRules()                                                 = call { api.getProfitRules() }
     suspend fun createProfitRule(data: Map<String, Any?>)                        = call { api.createProfitRule(data) }

@@ -580,6 +580,19 @@ interface ApiService {
     @GET("payroll/tech-report/{userId}")
     suspend fun getTechReport(@Path("userId") userId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
 
+    // P2.27 (Bundle 4): the NEW per-actor reports that web + the report PDFs use — same
+    // reference columns (payment-method split, parts, tip, fees, balance) across actor types.
+    @GET("reports/tech/{userId}")
+    suspend fun getActorReportTech(@Path("userId") userId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/roster/{rosterId}")
+    suspend fun getActorReportRoster(@Path("rosterId") rosterId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/source/{sourceId}")
+    suspend fun getActorReportSource(@Path("sourceId") sourceId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/partner/{connectionId}")
+    suspend fun getActorReportPartner(@Path("connectionId") connectionId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/self")
+    suspend fun getActorReportSelf(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
+
     @GET("payroll/profit-by-source")
     suspend fun getProfitBySource(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
 

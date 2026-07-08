@@ -72,10 +72,13 @@ data class TechPaySummary(
     val total_hours: Double = 0.0,
     val pending_bonuses: Double = 0.0,
     val pending_deductions: Double = 0.0,
-    val balance_owed: Double = 0.0
+    val balance_owed: Double = 0.0,
+    val is_roster: Boolean = false,   // P2.27: actor type for the new /reports/{actor} drill routing
+    val is_source: Boolean = false
 ) {
     val fullName get() = "$first_name $last_name".trim()
     val initials get() = "${first_name.take(1)}${last_name.take(1)}".uppercase()
+    val actorType get() = if (is_source) "source" else if (is_roster) "roster" else "tech"
 }
 
 data class JobReportRow(
@@ -304,7 +307,9 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         total_hours    = numD(m["total_hours"]),
         pending_bonuses = numD(m["pending_bonuses"]),
         pending_deductions = numD(m["pending_deductions"]),
-        balance_owed   = numD(m["balance_owed"])
+        balance_owed   = numD(m["balance_owed"]),
+        is_roster      = m["is_roster"] as? Boolean ?: false,
+        is_source      = m["is_source"] as? Boolean ?: false
     )
 
     @Suppress("UNCHECKED_CAST")
