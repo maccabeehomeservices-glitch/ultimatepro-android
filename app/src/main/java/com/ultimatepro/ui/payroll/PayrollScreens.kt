@@ -953,8 +953,9 @@ fun ActorReportScreen(
         LazyColumn(Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            // ── REPORT BALANCE headline ──────────────────────────────────
-            item {
+            // ── (source only) all-time settlement headline — the Tech Balance Sheet
+            //    (tech/roster) drops the top headline per David's spec (bottom carries it). ──
+            if (isSource) item {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (allTimeOwed > 0) AppColors.Green.copy(0.1f) else AppColors.Slate.copy(0.1f)
@@ -982,8 +983,8 @@ fun ActorReportScreen(
                 }
             }
 
-            // ── Compensation / settlement summary ────────────────────────
-            item {
+            // ── (source only) settlement summary ─────────────────────────
+            if (isSource) item {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(if (isSource) "Settlement Summary" else "Compensation Summary",
@@ -1028,8 +1029,8 @@ fun ActorReportScreen(
                 }
             }
 
-            // ── Reference summary boxes (payment-method / parts / fees roll-up) ──
-            item {
+            // ── (source only) reference summary boxes ────────────────────
+            if (isSource) item {
                 val boxes = if (isSource)
                     listOf("Total" to sumTotal, "Parts" to sumSourceParts, "Source Earned" to sumSourceEarned)
                 else
@@ -1056,12 +1057,41 @@ fun ActorReportScreen(
                 }
             }
 
-            // ── Per-job reference rows ───────────────────────────────────
+            // ── Per-job rows: Tech Balance Sheet (tech/roster) or source settlement rows ──
+            item {
+                Text(if (isSource) "Jobs This Period" else "Tech Balance Sheet",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
             if (jobs.isEmpty()) {
                 item { EmptyView("No completed jobs in this period", Icons.Default.Work) }
             } else {
-                item { Text("Jobs This Period", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-                items(jobs) { j -> ActorJobRow(j, isSource) }
+                items(jobs) { j -> if (isSource) ActorJobRow(j, true) else TechBalanceRow(j) }
+            }
+            // ── Bottom TOTAL + REPORT BALANCE (settlement) — Tech Balance Sheet only ──
+            if (!isSource) item {
+                val reportBalance = numD(summary["total_balance"])
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = AppColors.Blue.copy(alpha = 0.06f))) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            FinStat("Total", formatMoney(sumTotal), AppColors.Blue)
+                            FinStat("Tech Cut", formatMoney(sumTechProfit), AppColors.Purple)
+                            FinStat("Jobs", "${jobs.size}", AppColors.Slate)
+                        }
+                        Spacer(Modifier.height(10.dp)); HorizontalDivider(); Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text("REPORT BALANCE", fontWeight = FontWeight.Bold)
+                                Text(if (reportBalance < 0) "Company owes tech" else "Tech owes company",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(fmtSignedMoney(reportBalance), fontWeight = FontWeight.Bold, fontSize = 22.sp,
+                                color = if (reportBalance < 0) AppColors.Green else AppColors.Orange)
+                        }
+                    }
+                }
             }
 
             // ── Bonuses (user techs only) ────────────────────────────────
@@ -1107,6 +1137,91 @@ fun ActorReportScreen(
             }
 
             item { Spacer(Modifier.height(80.dp)) }
+        }
+    }
+}
+
+// P2.27 Tech Balance Sheet (David's spec) — signed money + method-display map (mirrors the
+// report PDF): credit_card/scanpay/venmo/cashapp/payment_link→CC, zelle/check→Check,
+// cash→Cash, other→Other. Collector: tech='Tech', else 'Co.'.
+private fun fmtSignedMoney(v: Double): String = (if (v < 0) "-" else "") + formatMoney(kotlin.math.abs(v))
+private val BS_METHOD = mapOf(
+    "credit_card" to "CC", "card" to "CC", "scanpay" to "CC", "venmo" to "CC", "cashapp" to "CC",
+    "payment_link" to "CC", "paypal" to "CC", "zelle" to "Check", "check" to "Check", "cash" to "Cash")
+private fun bsMethod(m: String?) = BS_METHOD[m] ?: "Other"
+private fun bsCollector(c: String?) = if (c == "tech") "Tech" else "Co."
+
+@Composable
+private fun LabeledLines(label: String, lines: List<String>) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Text(label, Modifier.width(92.dp), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f)) {
+            lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium) }
+        }
+    }
+}
+
+// One per-job Tech Balance Sheet card (tech/roster): Ticket/Client/Date/Type + Total + signed
+// Balance headline, then Payment ("Method (Collector) $amt", one line per payment) / Parts &
+// Fees / Tech Profit (Cut + Rate or Hours) — content parity with the report PDF + web.
+@Composable
+private fun TechBalanceRow(j: Map<String, Any?>) {
+    val bal = numD(j["balance"])
+    val hours = numD(j["hours"]); val rate = numD(j["hourly_rate"]); val pct = numD(j["commission_pct"])
+    val techParts = numD(j["tech_parts"]); val coParts = numD(j["company_parts"]); val fees = numD(j["fees"])
+    @Suppress("UNCHECKED_CAST")
+    val payments = (j["payments"] as? List<Map<String, Any?>>) ?: emptyList()
+
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(j["ticket"]?.toString() ?: "", style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    j["job_type"]?.toString()?.takeIf { it.isNotBlank() }?.let {
+                        StatusBadge(it.replaceFirstChar { c -> c.uppercase() }, AppColors.Accent, small = true)
+                    }
+                    Text(fmtReportDate(j["date"]?.toString()), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(j["customer_name"]?.toString() ?: "", fontWeight = FontWeight.SemiBold)
+            j["address"]?.toString()?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("Total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatMoney(numD(j["total_sale"])), fontWeight = FontWeight.Bold, color = AppColors.Blue)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(fmtSignedMoney(bal), fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                        color = if (bal < 0) AppColors.Green else AppColors.Orange)
+                    Text(if (bal < 0) "company owes tech" else "tech owes company",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(6.dp))
+            LabeledLines("Payment", if (payments.isEmpty()) listOf("—")
+                else payments.map { "${bsMethod(it["method"]?.toString())} (${bsCollector(it["collected_by"]?.toString())})  ${formatMoney(numD(it["amount"]))}" })
+            val pf = buildList {
+                if (techParts > 0) add("T.Part: ${formatMoney(techParts)}")
+                if (coParts > 0) add("C.Part: ${formatMoney(coParts)}")
+                if (fees > 0) add("Fees: ${formatMoney(fees)}")
+            }
+            LabeledLines("Parts & Fees", if (pf.isEmpty()) listOf("—") else pf)
+            val tp = buildList {
+                add("Cut: ${formatMoney(numD(j["tech_profit"]))}")
+                if (hours > 0 && rate > 0) add("Hours: ${if (hours % 1.0 == 0.0) hours.toInt().toString() else String.format("%.1f", hours)} @ ${formatMoney(rate)}/hr")
+                if (pct > 0) add("Rate: ${pct.toInt()}%")
+            }
+            LabeledLines("Tech Profit", tp)
         }
     }
 }
