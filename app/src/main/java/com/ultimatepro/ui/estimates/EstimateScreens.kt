@@ -1,4 +1,5 @@
 package com.ultimatepro.ui.estimates
+import android.util.Log
 
 import coil.compose.AsyncImage
 import android.graphics.Bitmap
@@ -148,7 +149,15 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
         }
     }
 
+    private var loadedExistingId: String? = null
     fun loadExisting(estimateId: String) {
+        // P2.24 ROOT CAUSE: returning from the pricebook picker RECREATES EstimateBuildScreen,
+        // re-firing LaunchedEffect(jobId,customerId) → this loadExisting re-ran and OVERWROTE
+        // lineItems, wiping the just-added item (proven via logs: addFromPricebook newList=2,
+        // then loadExisting SETTING lineItems=1). Guard it to load exactly ONCE per estimate so
+        // re-composition can't clobber user edits. (CREATE has no loadExisting → it never failed.)
+        if (loadedExistingId == estimateId) return
+        loadedExistingId = estimateId
         viewModelScope.launch {
             when (val r = repo.getEstimate(estimateId)) {
                 is Result.Success -> {
@@ -161,7 +170,7 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
                             pricebook_id = li.pricebook_id, price_overridden = li.price_overridden)
                     }
                     _s.update { it.copy(
-                        lineItems = est.line_items.orEmpty().map(toEditable),
+                        lineItems = est.line_items.orEmpty().map(toEditable), // P24LOG below
                         notes = est.notes ?: "", terms = est.terms ?: "",
                         depositRequired = est.deposit_required,
                         depositType = est.deposit_type,
@@ -1088,9 +1097,11 @@ fun EstimateBuildScreen(
 ) {
     val st     by vm.state.collectAsState()
     val picked by pickerVm.picked.collectAsState()
-    // Picker is activity-scoped, so its state persists across screens. Clear stale picks
-    // from a previous caller when this screen mounts.
-    LaunchedEffect(Unit) { pickerVm.clearPicked() }
+    // P2.24: DO NOT clear picks on mount. On the EDIT path loadExisting's async
+    // recompositions delayed this mount-time clearPicked() so it fired AFTER the user
+    // returned from the picker, wiping the just-added item (CREATE has no loadExisting, so
+    // it worked). Stale picks are now cleared at NAVIGATION time (onAddFromPricebook in
+    // Navigation.kt) instead, so a returned pick is always consumed by LaunchedEffect(picked).
     var showDiscount by remember { mutableStateOf(false) }
     var depositAmtText by remember { mutableStateOf("") }
     val snack = remember { SnackbarHostState() }

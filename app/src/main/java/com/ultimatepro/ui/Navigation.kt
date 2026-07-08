@@ -481,7 +481,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { estimateId -> navController.navigate("estimates/$estimateId/sign") },
                     onSend             = { estimateId -> navController.navigate("estimates/$estimateId/send") },
-                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
@@ -496,7 +496,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
@@ -510,7 +510,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
