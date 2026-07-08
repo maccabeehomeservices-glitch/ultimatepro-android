@@ -43,6 +43,13 @@ private fun numD(v: Any?): Double = when (v) {
     else -> 0.0
 }
 private fun numI(v: Any?): Int = numD(v).toInt()
+// P2.27 F-c: report rows showed raw ISO ("2026-07-07T00:00:00.000Z"). Format YYYY-MM-DD → "Jul 7, 2026".
+private val REPORT_MONTHS = listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+private fun fmtReportDate(raw: String?): String {
+    if (raw.isNullOrBlank()) return ""
+    val p = raw.take(10).split("-")
+    return if (p.size == 3) "${REPORT_MONTHS.getOrElse((p[1].toIntOrNull() ?: 1) - 1) { p[1] }} ${p[2].toIntOrNull() ?: p[2]}, ${p[0]}" else raw.take(10)
+}
 private fun numDN(v: Any?): Double? = when (v) {   // nullable: null = field absent
     is Number -> v.toDouble()
     is String -> v.toDoubleOrNull()
@@ -666,7 +673,7 @@ private fun JobReportCard(job: JobReportRow) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     job.job_source?.let { StatusBadge(it, AppColors.Accent, small = true) }
                     if (job.earning_paid) StatusBadge("Paid", AppColors.Green, small = true)
-                    Text(job.job_date, style = MaterialTheme.typography.labelSmall,
+                    Text(fmtReportDate(job.job_date), style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -953,7 +960,7 @@ fun TechReportScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(j["job_date"]?.toString()?.take(10) ?: "",
+                                    Text(fmtReportDate(j["job_date"]?.toString()),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(4.dp))
