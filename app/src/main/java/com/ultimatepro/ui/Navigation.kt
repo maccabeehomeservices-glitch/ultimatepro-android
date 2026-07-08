@@ -81,7 +81,7 @@ object Route {
     const val REPORTS            = "reports"
     // Payroll
     const val PAYROLL            = "payroll"
-    const val TECH_REPORT        = "payroll/tech/{userId}"
+    const val ACTOR_REPORT       = "payroll/report/{actorType}/{id}"   // P2.27 Bundle-4 per-actor report
     const val TECH_PAY_SETTINGS  = "payroll/settings/{userId}"
     const val REIMBURSEMENTS     = "payroll/reimbursements"
     const val PROFIT_SIMULATOR   = "payroll/simulator"
@@ -791,16 +791,21 @@ fun App(
             // ── Payroll hub ───────────────────────────────────────────────
             composable(Route.PAYROLL) {
                 PayrollScreen(
-                    onTechDetail    = { navController.navigate("payroll/tech/$it") },
+                    onActorDetail   = { actorType, id -> navController.navigate("payroll/report/$actorType/$id") },
                     onTechSettings  = { navController.navigate("payroll/settings/$it") },
                     onReimbursements= { navController.navigate(Route.REIMBURSEMENTS) },
                     onSimulator     = { navController.navigate(Route.PROFIT_SIMULATOR) },
                     onBack          = { navController.popBackStack() }
                 )
             }
-            composable(Route.TECH_REPORT, listOf(navArgument("userId") { type = NavType.StringType })) {
-                TechReportScreen(userId = it.arguments?.getString("userId") ?: "",
-                    onBack = { navController.popBackStack() })
+            composable(Route.ACTOR_REPORT, listOf(
+                navArgument("actorType") { type = NavType.StringType },
+                navArgument("id") { type = NavType.StringType }
+            )) {
+                ActorReportScreen(
+                    actorType = it.arguments?.getString("actorType") ?: "tech",
+                    id        = it.arguments?.getString("id") ?: "",
+                    onBack    = { navController.popBackStack() })
             }
             composable(Route.TECH_PAY_SETTINGS, listOf(navArgument("userId") { type = NavType.StringType })) {
                 TechPaySettingsScreen(userId = it.arguments?.getString("userId") ?: "",

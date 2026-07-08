@@ -577,9 +577,6 @@ interface ApiService {
     @GET("payroll/job-report")
     suspend fun getJobReport(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
 
-    @GET("payroll/tech-report/{userId}")
-    suspend fun getTechReport(@Path("userId") userId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
-
     // P2.27 (Bundle 4): the NEW per-actor reports that web + the report PDFs use — same
     // reference columns (payment-method split, parts, tip, fees, balance) across actor types.
     @GET("reports/tech/{userId}")

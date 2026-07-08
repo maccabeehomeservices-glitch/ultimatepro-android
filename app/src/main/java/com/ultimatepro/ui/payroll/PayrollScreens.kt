@@ -145,7 +145,7 @@ data class DeductionRow(
 data class PayrollState(
     val loading: Boolean = true,
     val summaryLoading: Boolean = false,
-    val techReportLoading: Boolean = false,
+    val actorReportLoading: Boolean = false,   // P2.27: per-actor /reports/{actor} drill
     val jobReportLoading: Boolean = false,
     val techSummaries: List<TechPaySummary> = emptyList(),
     val totalSales: Double = 0.0,
@@ -156,7 +156,7 @@ data class PayrollState(
     val totalJobs: Int = 0,
     val jobReport: List<JobReportRow> = emptyList(),
     val jobReportTotals: Map<String, Any> = emptyMap(),
-    val selectedTechReport: Map<String, Any?> = emptyMap(),
+    val selectedActorReport: Map<String, Any?> = emptyMap(),   // P2.27: Bundle-4 per-actor report payload
     val techs: List<User> = emptyList(),
     val period: String = "month",   // P2.20: match web Payroll's month-to-date default (identical day-window across platforms)
     val customFrom: String = "",
@@ -232,14 +232,43 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         }
     }
 
-    fun loadTechReport(userId: String, period: String, from: String = "", to: String = "") {
+    // P2.27 (Bundle 4): drill an actor (tech/roster/source/partner/self) onto the NEW
+    // /reports/{actor} endpoints that web + the report PDFs use — same reference columns
+    // (payment-method split, parts, fees, tip, balance) and the same numbers, replacing the
+    // old payroll/tech-report path that diverged from web (P2.27 KEY FINDING).
+    fun loadActorReport(actorType: String, id: String, period: String, from: String = "", to: String = "") {
         viewModelScope.launch {
-            _state.update { it.copy(techReportLoading = true) }
-            val params = buildPeriodParams(period, from, to)
-            when (val r = repo.getTechReport(userId, params)) {
-                is Result.Success -> _state.update { it.copy(techReportLoading = false, selectedTechReport = r.data) }
-                is Result.Error   -> _state.update { it.copy(techReportLoading = false, error = r.message) }
+            _state.update { it.copy(actorReportLoading = true, selectedActorReport = emptyMap()) }
+            // The /reports/{actor} endpoints read from/to (NOT period) and default to a rolling
+            // 30 days when absent. Send explicit month-to-date / week-to-date / today bounds —
+            // the SAME window payroll/summary uses for the Overview cards — so the drill
+            // reconciles to the cent with Overview + web (which also send explicit from/to).
+            val (rangeFrom, rangeTo) = actorReportRange(period, from, to)
+            val params = mapOf("from" to rangeFrom, "to" to rangeTo)
+            when (val r = repo.getActorReport(actorType, id, params)) {
+                is Result.Success -> _state.update { it.copy(actorReportLoading = false, selectedActorReport = r.data) }
+                is Result.Error   -> _state.update { it.copy(actorReportLoading = false, error = r.message) }
             }
+        }
+    }
+
+    // period → explicit [from,to] range (month-to-date etc.), matching payroll/summary's windows.
+    private fun actorReportRange(period: String, from: String, to: String): Pair<String, String> {
+        if (period == "custom" && from.isNotBlank() && to.isNotBlank()) return from to to
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val cal = Calendar.getInstance()
+        val today = sdf.format(cal.time)
+        return when (period) {
+            "today" -> today to today
+            // Monday-start ISO week to mirror the backend (Luxon startOf('week') = Monday) so
+            // the Week drill reconciles with the Overview `period=week` cards to the cent.
+            "week"  -> {
+                val dow = cal.get(Calendar.DAY_OF_WEEK)            // Sun=1..Sat=7
+                val back = if (dow == Calendar.SUNDAY) 6 else dow - Calendar.MONDAY
+                cal.add(Calendar.DAY_OF_MONTH, -back)
+                sdf.format(cal.time) to today
+            }
+            else    -> { cal.set(Calendar.DAY_OF_MONTH, 1); sdf.format(cal.time) to today }   // month
         }
     }
 
@@ -344,7 +373,7 @@ class PayrollViewModel @Inject constructor(private val repo: CrmRepository) : Vi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayrollScreen(
-    onTechDetail:     (String) -> Unit,
+    onActorDetail:    (String, String) -> Unit,   // P2.27: (actorType, id) → Bundle-4 per-actor report
     onTechSettings:   (String) -> Unit,
     onReimbursements: () -> Unit,
     onSimulator:      () -> Unit,
@@ -417,9 +446,9 @@ fun PayrollScreen(
             }
 
             when (tab) {
-                0 -> OverviewTab(state, onTechDetail, onTechSettings, vm)
+                0 -> OverviewTab(state, onActorDetail, onTechSettings, vm)
                 1 -> JobReportTab(state, vm, period)
-                2 -> ByTechTab(state, onTechDetail, onTechSettings, vm, period)
+                2 -> ByTechTab(state, onActorDetail, onTechSettings, vm, period)
             }
         }
     }
@@ -466,7 +495,7 @@ fun PayrollScreen(
 // ── Overview Tab ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun OverviewTab(state: PayrollState, onTechDetail: (String) -> Unit, onTechSettings: (String) -> Unit, vm: PayrollViewModel) {
+private fun OverviewTab(state: PayrollState, onActorDetail: (String, String) -> Unit, onTechSettings: (String) -> Unit, vm: PayrollViewModel) {
     if (state.summaryLoading) { LoadingView(); return }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
@@ -506,7 +535,7 @@ private fun OverviewTab(state: PayrollState, onTechDetail: (String) -> Unit, onT
             item { EmptyView("No completed jobs in this period", Icons.Default.Work) }
         } else {
             items(state.techSummaries, key = { it.id }) { tech ->
-                TechPayCard(tech = tech, onDetail = { onTechDetail(tech.id) }, onSettings = { onTechSettings(tech.id) }, vm = vm)
+                TechPayCard(tech = tech, onDetail = { onActorDetail(tech.actorType, tech.id) }, onSettings = { onTechSettings(tech.id) }, vm = vm)
             }
         }
 
@@ -767,43 +796,44 @@ private fun JobReportCard(job: JobReportRow) {
 // ── By Tech Tab ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun ByTechTab(state: PayrollState, onTechDetail: (String) -> Unit, onTechSettings: (String) -> Unit, vm: PayrollViewModel, period: String) {
-    if (state.techs.isEmpty()) { EmptyView("No technicians", Icons.Default.People); return }
+private fun ByTechTab(state: PayrollState, onActorDetail: (String, String) -> Unit, onTechSettings: (String) -> Unit, vm: PayrollViewModel, period: String) {
+    // P2.27 F-b: source from the payroll/summary actor set (techSummaries) — which includes
+    // ROSTER techs and SOURCES — not getTechnicians (users only). Roster techs were the
+    // actors that carried the money on staging and were absent from this tab before.
+    if (state.summaryLoading) { LoadingView(); return }
+    if (state.techSummaries.isEmpty()) { EmptyView("No completed jobs in this period", Icons.Default.People); return }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Text("Tap a technician to see their full report", style = MaterialTheme.typography.bodySmall,
+        item { Text("Tap an actor to see their full reference report", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        items(state.techs, key = { it.id }) { tech ->
+        items(state.techSummaries, key = { it.id }) { tech ->
             val color = try { Color(android.graphics.Color.parseColor(tech.color)) } catch (e: Exception) { AppColors.Blue }
-            val summary = state.techSummaries.find { it.id == tech.id }
-            Card(onClick = { onTechDetail(tech.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            Card(onClick = { onActorDetail(tech.actorType, tech.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     AvatarCircle(tech.initials, color, 44.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(tech.fullName, fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (tech.hourly_rate > 0 && tech.commission_pct == 0.0)
-                                "Hourly @ ${formatMoney(tech.hourly_rate)}/hr"
-                            else
-                                "Commission ${tech.commission_pct.toInt()}%",
+                            when {
+                                tech.actorType == "source" -> "Source • ${tech.commission_pct.toInt()}% allocation"
+                                tech.actorType == "roster"  -> "Roster • Commission ${tech.commission_pct.toInt()}%"
+                                tech.hourly_rate > 0 && tech.commission_pct == 0.0 -> "Hourly @ ${formatMoney(tech.hourly_rate)}/hr"
+                                else -> "Commission ${tech.commission_pct.toInt()}%"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        summary?.let {
-                            Text("${it.jobs_count} jobs this period",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Text("${tech.jobs_count} jobs this period",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    summary?.let {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(formatMoney(it.balance_owed), fontWeight = FontWeight.Bold,
-                                color = if (it.balance_owed > 0) AppColors.Green else AppColors.Slate)
-                            Text("owed", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(formatMoney(tech.balance_owed), fontWeight = FontWeight.Bold,
+                            color = if (tech.balance_owed > 0) AppColors.Green else AppColors.Slate)
+                        Text("owed", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -813,201 +843,228 @@ private fun ByTechTab(state: PayrollState, onTechDetail: (String) -> Unit, onTec
     }
 }
 
-// ── Tech Detail Report Screen ──────────────────────────────────────────────
+// ── Actor Detail Report Screen (P2.27 Bundle 4) ────────────────────────────
+// Reference-column per-actor report (Pay Statement / Source Settlement) driven by the
+// NEW /reports/{actor} endpoints that web + the report PDFs use — same reference columns
+// (payment-method split, parts, fees, tip, balance) and the SAME numbers, replacing the
+// old payroll/tech-report path that diverged from web (P2.27 KEY FINDING).
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TechReportScreen(
-    userId: String,
+fun ActorReportScreen(
+    actorType: String,
+    id: String,
     onBack: () -> Unit,
     vm: PayrollViewModel = hiltViewModel(),
     tsVm: TimesheetViewModel = hiltViewModel()
 ) {
     val state    by vm.state.collectAsState()
     val tsReport by tsVm.report.collectAsState()
-    var period   by remember { mutableStateOf("week") }
+    var period   by remember { mutableStateOf("month") }   // match Overview month-to-date default
 
-    LaunchedEffect(userId) { vm.loadTechReport(userId, period) }
+    LaunchedEffect(actorType, id) { vm.loadActorReport(actorType, id, period) }
 
-    // Load timesheet data for this tech whenever userId or period changes
-    LaunchedEffect(userId, period) {
-        val (start, end) = payrollPeriodToDates(period)
-        tsVm.loadReport(start, end, userId)
+    // Timesheet hours only apply to USER technicians (roster/source have none).
+    LaunchedEffect(actorType, id, period) {
+        if (actorType == "tech") {
+            val (start, end) = payrollPeriodToDates(period)
+            tsVm.loadReport(start, end, id)
+        }
     }
 
+    val report = state.selectedActorReport
     @Suppress("UNCHECKED_CAST")
-    val report  = state.selectedTechReport
+    val actor   = (report["actor"] as? Map<String, Any?>) ?: emptyMap()
     @Suppress("UNCHECKED_CAST")
-    val tech    = report["tech"] as? Map<String, Any>
+    val jobs    = (report["jobs"] as? List<Map<String, Any?>>) ?: emptyList()
     @Suppress("UNCHECKED_CAST")
-    val summary = report["summary"] as? Map<String, Any>
+    val summary = (report["summary"] as? Map<String, Any?>) ?: emptyMap()
     @Suppress("UNCHECKED_CAST")
-    val jobList = (report["jobs"] as? List<Map<String, Any>>) ?: emptyList()
+    val bonuses = (report["bonuses"] as? List<Map<String, Any?>>) ?: emptyList()
     @Suppress("UNCHECKED_CAST")
-    val bonuses = (report["bonuses"] as? List<Map<String, Any>>) ?: emptyList()
+    val deducts = (report["deductions"] as? List<Map<String, Any?>>) ?: emptyList()
     @Suppress("UNCHECKED_CAST")
-    val deducts = (report["deductions"] as? List<Map<String, Any>>) ?: emptyList()
-    val allTimeBalance = numD(report["all_time_balance"])
-    val techName = tech?.let { "${it["first_name"]} ${it["last_name"]}" } ?: "Technician"
+    val allTime = (report["all_time_balance"] as? Map<String, Any?>) ?: emptyMap()
+
+    val isSource  = actorType == "source"
+    val actorName = actor["name"]?.toString()?.takeIf { it.isNotBlank() } ?: "Report"
+    val actorLabel = when (actorType) {
+        "source"  -> "Source Settlement"
+        "roster"  -> "Pay Statement (Roster)"
+        "partner" -> "Partner Settlement"
+        "self"    -> "Company Operations"
+        else      -> "Pay Statement"
+    }
+    val commPct = numD(actor["commission_pct"]).let { if (it > 0) it else numD(actor["rate"]) }
+
+    // Per-job reference roll-ups (Technician_Report reference summary boxes) — summed on the
+    // client from the row data so the payment-method / parts / fees columns roll up on-screen.
+    val sumTotal       = jobs.sumOf { numD(it["total_sale"]) }
+    val sumFees        = jobs.sumOf { numD(it["fees"]) }
+    val sumTParts      = jobs.sumOf { numD(it["tech_parts"]) }
+    val sumCParts      = jobs.sumOf { numD(it["company_parts"]) }
+    val sumCard        = jobs.sumOf { numD(it["card"]) }
+    val sumCash        = jobs.sumOf { numD(it["cash"]) }
+    val sumCheck       = jobs.sumOf { numD(it["check_amt"]) }
+    val sumScan        = jobs.sumOf { numD(it["scanpay"]) }
+    val sumVenmo       = jobs.sumOf { numD(it["venmo"]) }
+    val sumTip         = jobs.sumOf { numD(it["tip"]) }
+    val sumTechProfit  = jobs.sumOf { numD(it["tech_profit"]) }
+    val sumSourceParts = jobs.sumOf { numD(it["parts"]) }
+    val sumSourceEarned= jobs.sumOf { numD(it["source_earned"]) }
+    val bonusTotal     = bonuses.sumOf { numD(it["amount"]) }
+    val deductTotal    = deducts.sumOf { numD(it["amount"]) }
+
+    // REPORT BALANCE (all-time, unpaid side). Source carries no bonuses/deductions ledger, so
+    // its owed balance is the period settlement total.
+    val allTimeOwed = numDN(allTime["unpaid"]) ?: (if (isSource) sumSourceEarned else 0.0)
+    val allTimePaid = numD(allTime["paid"])
+    // Net pay this period = period earnings + bonuses - deductions (source: settlement owed).
+    val periodEarnings = if (isSource) sumSourceEarned else sumTechProfit
+    val netPay = periodEarnings + bonusTotal - deductTotal
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(techName, fontWeight = FontWeight.Bold) },
+            title = {
+                Column {
+                    Text(actorName, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(actorLabel, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = {
                 listOf("today" to "Day", "week" to "Wk", "month" to "Mo").forEach { (key, label) ->
                     FilterChip(selected = period == key, onClick = {
                         period = key
-                        vm.loadTechReport(userId, period)
-                        val (start, end) = payrollPeriodToDates(key)
-                        tsVm.loadReport(start, end, userId)
+                        vm.loadActorReport(actorType, id, key)
+                        if (actorType == "tech") {
+                            val (start, end) = payrollPeriodToDates(key)
+                            tsVm.loadReport(start, end, id)
+                        }
                     }, label = { Text(label, fontSize = 12.sp) })
                 }
             }
         )
     }) { padding ->
-        if (state.techReportLoading) { LoadingView(); return@Scaffold }
-        if (report.isEmpty()) { LoadingView(); return@Scaffold }
+        if (state.actorReportLoading) { LoadingView(); return@Scaffold }
+        if (report.isEmpty()) { EmptyView("No report data", Icons.Default.Assessment); return@Scaffold }
 
         LazyColumn(Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            // ── All-time balance banner ──────────────────────────────────
+            // ── REPORT BALANCE headline ──────────────────────────────────
             item {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (allTimeBalance > 0) AppColors.Green.copy(0.1f) else AppColors.Slate.copy(0.1f)
+                        containerColor = if (allTimeOwed > 0) AppColors.Green.copy(0.1f) else AppColors.Slate.copy(0.1f)
                     )) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AccountBalanceWallet, null,
-                            tint = if (allTimeBalance > 0) AppColors.Green else AppColors.Slate,
+                            tint = if (allTimeOwed > 0) AppColors.Green else AppColors.Slate,
                             modifier = Modifier.size(32.dp))
                         Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Total Balance Owed (All Time)", style = MaterialTheme.typography.labelSmall,
+                        Column(Modifier.weight(1f)) {
+                            Text(if (isSource) "Settlement Owed (All Time)" else "Report Balance Owed (All Time)",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatMoney(allTimeBalance), fontSize = 26.sp, fontWeight = FontWeight.Bold,
-                                color = if (allTimeBalance > 0) AppColors.Green else AppColors.Slate)
+                            Text(formatMoney(allTimeOwed), fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                                color = if (allTimeOwed > 0) AppColors.Green else AppColors.Slate)
+                        }
+                        if (allTimePaid > 0) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Paid", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatMoney(allTimePaid), fontWeight = FontWeight.SemiBold, color = AppColors.Slate)
+                            }
                         }
                     }
                 }
             }
 
-            // ── Period summary ───────────────────────────────────────────
+            // ── Compensation / settlement summary ────────────────────────
             item {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Period Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(if (isSource) "Settlement Summary" else "Compensation Summary",
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            FinStat("Jobs",       "${numI(summary?.get("jobs_count"))}", AppColors.Blue)
-                            FinStat("Total Sales", formatMoney(numD(summary?.get("total_sales"))), AppColors.Blue)
-                            FinStat("Hours",      String.format("%.1f", numD(summary?.get("total_hours"))), AppColors.Slate)
+                            FinStat("Jobs", "${jobs.size}", AppColors.Blue)
+                            FinStat("Total Sales", formatMoney(sumTotal), AppColors.Blue)
+                            FinStat(if (isSource) "Rate" else "Comm %",
+                                if (commPct > 0) "${commPct.toInt()}%" else "—", AppColors.Slate)
                         }
                         Spacer(Modifier.height(10.dp))
                         HorizontalDivider()
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            FinStat("Gross Earnings", formatMoney(numD(summary?.get("gross_earnings"))), AppColors.Purple)
-                            FinStat("+ Bonuses",      "+${formatMoney(numD(summary?.get("bonus_total")))}", AppColors.Green)
-                            FinStat("- Deductions",   "-${formatMoney(numD(summary?.get("deduction_total")))}", AppColors.Red)
+                            FinStat(if (isSource) "Source Earned" else "Earnings", formatMoney(periodEarnings), AppColors.Purple)
+                            if (!isSource) FinStat("+ Bonuses", "+${formatMoney(bonusTotal)}", AppColors.Green)
+                            if (!isSource) FinStat("- Deductions", "-${formatMoney(deductTotal)}", AppColors.Red)
                         }
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text("Net Payout This Period", fontWeight = FontWeight.Bold)
-                            Text(formatMoney(numD(summary?.get("net_payout"))),
-                                fontWeight = FontWeight.Bold, fontSize = 20.sp, color = AppColors.Green)
+                            Text(if (isSource) "Settlement This Period" else "Net Pay This Period", fontWeight = FontWeight.Bold)
+                            Text(formatMoney(netPay), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = AppColors.Green)
                         }
-                        // Timesheet hours for this period
+                        // Timesheet hours (user techs only)
                         val tsTotalMins = tsReport?.summary?.firstOrNull()?.totalMinutes ?: 0
-                        if (tsTotalMins > 0) {
-                            Spacer(Modifier.height(8.dp))
-                            HorizontalDivider()
-                            Spacer(Modifier.height(8.dp))
+                        if (actorType == "tech" && tsTotalMins > 0) {
+                            Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.AccessTime, null,
-                                        tint = AppColors.Blue,
-                                        modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.AccessTime, null, tint = AppColors.Blue, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text("Hours Worked", style = MaterialTheme.typography.bodySmall)
                                 }
-                                Text(
-                                    "${tsTotalMins / 60}h ${tsTotalMins % 60}m",
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = AppColors.Blue,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                Text("${tsTotalMins / 60}h ${tsTotalMins % 60}m", fontWeight = FontWeight.SemiBold,
+                                    color = AppColors.Blue, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                 }
             }
 
-            // ── Job breakdown ────────────────────────────────────────────
-            if (jobList.isNotEmpty()) {
+            // ── Reference summary boxes (payment-method / parts / fees roll-up) ──
+            item {
+                val boxes = if (isSource)
+                    listOf("Total" to sumTotal, "Parts" to sumSourceParts, "Source Earned" to sumSourceEarned)
+                else
+                    listOf("Total" to sumTotal, "Cash" to sumCash, "Card" to sumCard,
+                           "Check" to sumCheck, "Venmo" to sumVenmo, "ScanPay" to sumScan,
+                           "Fees" to sumFees, "T.Parts" to sumTParts, "C.Parts" to sumCParts,
+                           "Tip" to sumTip)
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = AppColors.Blue.copy(alpha = 0.06f))) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("Payment Breakdown", style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(10.dp))
+                        boxes.chunked(3).forEach { rowBoxes ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                rowBoxes.forEach { (label, value) ->
+                                    Box(Modifier.weight(1f)) { MiniStat(label, formatMoney(value), AppColors.Slate) }
+                                }
+                                repeat(3 - rowBoxes.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Per-job reference rows ───────────────────────────────────
+            if (jobs.isEmpty()) {
+                item { EmptyView("No completed jobs in this period", Icons.Default.Work) }
+            } else {
                 item { Text("Jobs This Period", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-                items(jobList) { j ->
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(j["job_number"]?.toString() ?: "", style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(j["job_title"]?.toString() ?: "", fontWeight = FontWeight.SemiBold)
-                                    Text(j["customer_name"]?.toString() ?: "", style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    val addr = listOf(j["address"], j["city"]).filterNotNull()
-                                        .filter { it.toString().isNotBlank() }.joinToString(", ")
-                                    if (addr.isNotBlank()) Text(addr, style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(fmtReportDate(j["job_date"]?.toString()),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(formatMoney(numD(j["total_sale"])),
-                                        fontWeight = FontWeight.SemiBold, color = AppColors.Blue)
-                                    Text("Profit: ${formatMoney(numD(j["profit"]))}",
-                                        style = MaterialTheme.typography.bodySmall, color = AppColors.Purple)
-                                    j["job_source"]?.let { StatusBadge(it.toString(), AppColors.Accent, small = true) }
-                                }
-                            }
-                            val commPct = numDN(j["commission_pct"])
-                            val resolvedPct = numDN(j["resolved_commission_pct"])
-                            if (commPct != null && commPct > 0) {
-                                Spacer(Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("${commPct.toInt()}% commission",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (resolvedPct != null) {
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = AppColors.Purple.copy(alpha = 0.12f)
-                                        ) {
-                                            Text("Source rule", style = MaterialTheme.typography.labelSmall,
-                                                color = AppColors.Purple,
-                                                modifier = androidx.compose.ui.Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                                        }
-                                    }
-                                }
-                            }
-                            if ((j["pay_type"]?.toString() == "hourly") && numD(j["hours_worked"]) > 0) {
-                                Spacer(Modifier.height(4.dp))
-                                Text("${String.format("%.2f", numD(j["hours_worked"]))} hours",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
+                items(jobs) { j -> ActorJobRow(j, isSource) }
             }
 
-            // ── Bonuses ──────────────────────────────────────────────────
+            // ── Bonuses (user techs only) ────────────────────────────────
             if (bonuses.isNotEmpty()) {
                 item { Text("Bonuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(bonuses) { b ->
@@ -1019,17 +1076,17 @@ fun TechReportScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(b["reason"]?.toString() ?: "", fontWeight = FontWeight.Medium)
                                 b["created_at"]?.toString()?.take(10)?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(fmtReportDate(it), style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            Text("+${formatMoney(numD(b["amount"]))}",
-                                fontWeight = FontWeight.Bold, color = AppColors.Green)
+                            Text("+${formatMoney(numD(b["amount"]))}", fontWeight = FontWeight.Bold, color = AppColors.Green)
                         }
                     }
                 }
             }
 
-            // ── Deductions ───────────────────────────────────────────────
+            // ── Deductions (user techs only) ─────────────────────────────
             if (deducts.isNotEmpty()) {
                 item { Text("Deductions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                 items(deducts) { d ->
@@ -1043,14 +1100,86 @@ fun TechReportScreen(
                                 Text(d["deduction_type"]?.toString()?.replaceFirstChar { it.uppercase() } ?: "",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("-${formatMoney(numD(d["amount"]))}",
-                                fontWeight = FontWeight.Bold, color = AppColors.Red)
+                            Text("-${formatMoney(numD(d["amount"]))}", fontWeight = FontWeight.Bold, color = AppColors.Red)
                         }
                     }
                 }
             }
 
             item { Spacer(Modifier.height(80.dp)) }
+        }
+    }
+}
+
+// One per-job reference row: core columns always visible + an expandable payment-method /
+// parts / fees / tip breakdown (the full Technician_Report reference column set).
+@Composable
+private fun ActorJobRow(j: Map<String, Any?>, isSource: Boolean) {
+    var expanded by remember { mutableStateOf(false) }
+    val balance = numD(j["balance"])
+    val commPct = numD(if (isSource) j["rate"] else j["commission_pct"])
+
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.padding(12.dp).clickable { expanded = !expanded }) {
+            // Row 1: ticket + date + balance
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(j["ticket"]?.toString() ?: "", style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (balance > 0) StatusBadge("Bal ${formatMoney(balance)}", AppColors.Orange, small = true)
+                    Text(fmtReportDate(j["date"]?.toString()), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            // Row 2: customer + address
+            Text(j["customer_name"]?.toString() ?: "", fontWeight = FontWeight.SemiBold)
+            j["address"]?.toString()?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            if (isSource) j["job_info"]?.toString()?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Spacer(Modifier.height(8.dp))
+            // Row 3: core financials
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MiniStat("Total", formatMoney(numD(j["total_sale"])), AppColors.Blue)
+                MiniStat(if (isSource) "Rate" else "Comm", if (commPct > 0) "${commPct.toInt()}%" else "—", AppColors.Slate)
+                MiniStat(if (isSource) "Earned" else "Tech Profit",
+                    formatMoney(numD(if (isSource) j["source_earned"] else j["tech_profit"])), AppColors.Purple)
+            }
+            // Expanded: full payment-method / parts / fees / tip breakdown
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(top = 10.dp)) {
+                    HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    val rows = if (isSource)
+                        listOf("Parts" to numD(j["parts"]), "Balance" to balance)
+                    else
+                        listOf("Cash" to numD(j["cash"]), "Card" to numD(j["card"]),
+                               "Check" to numD(j["check_amt"]), "Venmo" to numD(j["venmo"]),
+                               "ScanPay" to numD(j["scanpay"]), "Tip" to numD(j["tip"]),
+                               "Tech Parts" to numD(j["tech_parts"]), "Company Parts" to numD(j["company_parts"]),
+                               "Fees" to numD(j["fees"]), "Balance" to balance)
+                    rows.filter { it.second != 0.0 }.forEach { (label, value) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(label, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatMoney(value), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    if (rows.none { it.second != 0.0 }) {
+                        Text("No payment breakdown recorded", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
+                Modifier.align(Alignment.CenterHorizontally).size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1063,8 +1192,10 @@ private fun payrollPeriodToDates(period: String): Pair<String, String> {
     val today = sdf.format(cal.time)
     return when (period) {
         "today" -> today to today
-        "week"  -> {
-            cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+        "week"  -> {   // Monday-start ISO week, mirroring the backend (P2.27 reconciliation)
+            val dow = cal.get(Calendar.DAY_OF_WEEK)
+            val back = if (dow == Calendar.SUNDAY) 6 else dow - Calendar.MONDAY
+            cal.add(Calendar.DAY_OF_MONTH, -back)
             sdf.format(cal.time) to today
         }
         "month" -> {

@@ -511,7 +511,6 @@ class CrmRepository @Inject constructor(
     suspend fun markEarningsPaid(body: Map<String, Any?>)                        = call { api.markEarningsPaid(body) }
     suspend fun getPermissionSchema()                                            = call { api.getPermissionSchema() }
     suspend fun getJobReport(params: Map<String, String>)                        = call { api.getJobReport(params) }
-    suspend fun getTechReport(userId: String, params: Map<String, String>)       = call { api.getTechReport(userId, params) }
     // P2.27 (Bundle 4): new per-actor reports (reference columns, same as web + report PDFs).
     suspend fun getActorReport(actorType: String, id: String, params: Map<String, String>) = call {
         when (actorType) {
