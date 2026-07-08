@@ -481,7 +481,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { estimateId -> navController.navigate("estimates/$estimateId/sign") },
                     onSend             = { estimateId -> navController.navigate("estimates/$estimateId/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
                     pickerVm           = pickerVm
                 )
             }
@@ -496,7 +496,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
                     pickerVm           = pickerVm
                 )
             }
@@ -510,7 +510,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22
                     pickerVm           = pickerVm
                 )
             }
@@ -718,12 +718,16 @@ fun App(
             }
             // Flat picker — uses an activity-scoped PricebookPickerViewModel so the same
             // VM instance is shared with the calling Estimate/Invoice screen. No back-stack walk.
-            composable(Route.PRICEBOOK_ALL) {
+            composable(
+                Route.PRICEBOOK_ALL + "?type={type}",
+                listOf(navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null })
+            ) {
                 val activity = LocalContext.current as ComponentActivity
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 PricebookItemListScreen(
                     categoryId   = null,
                     categoryName = "All Items",
+                    filter       = it.arguments?.getString("type"),   // P2.22: labor|material picker filter
                     vm           = pickerVm,
                     onItem       = { item -> navController.navigate("pricebook/item/${item.id}") },
                     onBack       = { navController.popBackStack() },

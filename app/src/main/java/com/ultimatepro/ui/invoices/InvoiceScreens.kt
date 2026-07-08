@@ -386,7 +386,7 @@ fun InvoiceDetailScreen(
                 val mats = i.line_items.filter { it.item_type == "material" }
                 val discs = i.line_items.filter { it.item_type == "discount" }
                 val others = i.line_items.filter { it.item_type !in listOf("service","labor","material","discount") }
-                if (svcs.isNotEmpty()) item { InvLineItemsCard("SERVICE", svcs) }
+                if (svcs.isNotEmpty()) item { InvLineItemsCard("LABOR", svcs) }
                 if (mats.isNotEmpty()) item { InvLineItemsCard("MATERIALS", mats) }
                 if (discs.isNotEmpty()) item { InvLineItemsCard("DISCOUNTS", discs, isDiscount = true) }
                 if (others.isNotEmpty()) item { InvLineItemsCard("ITEMS", others) }

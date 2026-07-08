@@ -517,9 +517,13 @@ fun PricebookItemListScreen(
     val perms by authVm.permissions.collectAsState()
     val role by authVm.role.collectAsState()
 
+    // P2.22: type-filtered picker — `filter` (labor|material) narrows the list; the
+    // "Show all" toggle below clears it as an escape hatch.
+    var showAll by remember(filter) { mutableStateOf(false) }
+    val effFilter = if (showAll) null else filter
     // null or blank categoryId → load all items (no category filter)
-    LaunchedEffect(categoryId, search) {
-        vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, filter)
+    LaunchedEffect(categoryId, search, effFilter) {
+        vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, effFilter)
     }
 
     val pickedCount = picked.values.sumOf { it.qty }
@@ -568,12 +572,24 @@ fun PricebookItemListScreen(
                 value = search, onValueChange = { vm.setSearch(it) },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
+            // P2.22: type filter + "Show all" escape hatch (only when opened for a type)
+            if (filter != null) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(selected = !showAll, onClick = { showAll = false },
+                        label = { Text(if (filter == "material") "Materials only" else "Labor only") })
+                    FilterChip(selected = showAll, onClick = { showAll = true },
+                        label = { Text("Show all") })
+                }
+            }
             if (loading && items.isEmpty()) {
                 LoadingView()
             } else if (error != null && items.isEmpty()) {
                 PricebookErrorView(error!!) {
                     vm.clearError()
-                    vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, filter)
+                    vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, effFilter)
                 }
             } else if (items.isEmpty()) {
                 EmptyView(

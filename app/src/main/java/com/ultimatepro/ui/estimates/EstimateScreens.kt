@@ -861,7 +861,7 @@ fun EstimateDetailScreen(
                                 val tierMats = tier.lineItems.filter { it.item_type == "material" }
                                 val tierDisc = tier.lineItems.filter { it.item_type == "discount" }
                                 if (tierSvcs.isNotEmpty()) {
-                                    Text("Services", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Bold)
+                                    Text("Labor", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Bold)
                                     tierSvcs.forEach { li -> TierDetailItemRow(li) }
                                 }
                                 if (tierMats.isNotEmpty()) {
@@ -904,7 +904,7 @@ fun EstimateDetailScreen(
                     val svcs = items.filter { it.item_type in listOf("service","labor") }
                     val mats = items.filter { it.item_type == "material" }
                     val disc = items.filter { it.item_type == "discount" }
-                    if (svcs.isNotEmpty()) item { LineItemsCard("SERVICE", svcs) }
+                    if (svcs.isNotEmpty()) item { LineItemsCard("LABOR", svcs) }
                     if (mats.isNotEmpty()) item { LineItemsCard("MATERIALS", mats) }
                     if (disc.isNotEmpty()) item { CRMCard { SectionLabel("DISCOUNTS"); disc.forEach { li -> Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(li.name, fontWeight = FontWeight.Medium); Text("-${formatMoney(li.quantity * li.unit_price)}", color = AppColors.Orange, fontWeight = FontWeight.SemiBold) } } } }
                     item { TotalsCard(e.subtotal, e.tax_total, e.discount_total, e.total) }
@@ -1249,8 +1249,8 @@ fun EstimateBuildScreen(
                 val tierServices  = tier.lineItems.filter { it.item_type in listOf("service","labor") }
                 val tierMaterials = tier.lineItems.filter { it.item_type == "material" }
                 val tierDiscounts = tier.lineItems.filter { it.item_type == "discount" }
-                LineItemSection("SERVICE", tierServices,
-                    onAdd = { onAddFromPricebook("service") },
+                LineItemSection("LABOR", tierServices,   // P2.22: Services→Labor
+                    onAdd = { onAddFromPricebook("labor") },
                     onRemove = { vm.removeTierLineItem(tIdx, it) },
                     onUpdate = { vm.updateTierLineItem(tIdx, it) })
                 LineItemSection("MATERIALS", tierMaterials,
@@ -1284,7 +1284,7 @@ fun EstimateBuildScreen(
             } else {
                 // Standard mode
                 // Services
-                LineItemSection("SERVICE", vm.services, onAdd = { onAddFromPricebook("service") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
+                LineItemSection("LABOR", vm.services, onAdd = { onAddFromPricebook("labor") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })  // P2.22: Services→Labor
                 // Materials
                 LineItemSection("MATERIALS", vm.materials, onAdd = { onAddFromPricebook("material") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
                 // Discounts

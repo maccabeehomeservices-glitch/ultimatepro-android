@@ -3429,10 +3429,6 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
             // P2.19: arrival-window end — only when date + start + end all set.
             val scheduledEndEdit = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
                 "${schedDate}T${schedEndTime}" else null
-            val srcLabelEdit = buildString {
-                if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
-                if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
-            }
             vm.updateJob(editJobId, mapOf(
                 "type"                    to type,
                 "address"                 to address.ifBlank { null },
@@ -3446,7 +3442,6 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "lng"                     to lng,
                 "assigned_to"             to assignedTo,
                 "assigned_roster_tech_id" to assignedRosterTechId,
-                "source"                  to srcLabelEdit.ifBlank { null },
                 "source_type"             to sourceType,
                 "job_source_id"           to jobSourceId,
                 "ad_channel_id"           to adChannelId
@@ -3464,10 +3459,6 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
         // P2.19: arrival-window end — only when date + start + end all set.
         val scheduledEnd = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
             "${schedDate}T${schedEndTime}" else null
-        val srcLabel = buildString {
-            if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
-            if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
-        }
         val isNonSelf = assignCat != "self" && (assignedTo != null || assignedRosterTechId != null)
         val localRosterTechId = assignedRosterTechId
         vm.createJobWithCustomer(
@@ -3484,7 +3475,6 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "lng"                      to lng,
                 "assigned_to"              to assignedTo,
                 "assigned_roster_tech_id"  to assignedRosterTechId,
-                "source"               to srcLabel.ifBlank { null },
                 "source_type"          to sourceType,
                 "job_source_id"        to jobSourceId,
                 "ad_channel_id"        to adChannelId,
