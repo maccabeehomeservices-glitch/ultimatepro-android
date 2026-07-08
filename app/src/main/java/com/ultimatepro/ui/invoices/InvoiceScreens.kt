@@ -106,8 +106,16 @@ class InvoiceViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         }
     }
 
-    fun recordPayment(id: String, method: String, amount: Double?, notes: String? = null, onDone: () -> Unit) {
-        viewModelScope.launch { when (val r = repo.recordInvoicePayment(id, method, amount, notes)) { is Result.Success -> { loadInv(id); _msg.value = "Payment recorded!"; onDone() }; is Result.Error -> _msg.value = r.message } }
+    // P2.27 #3: a payment beyond the balance returns 409 'overpayment' — surface onNeedsConfirm
+    // (the screen shows a confirm dialog) instead of a plain error; confirmOverpayment resends it.
+    fun recordPayment(id: String, method: String, amount: Double?, notes: String? = null,
+                      confirmOverpayment: Boolean = false, onNeedsConfirm: () -> Unit = {}, onDone: () -> Unit) {
+        viewModelScope.launch {
+            when (val r = repo.recordInvoicePayment(id, method, amount, notes, confirmOverpayment)) {
+                is Result.Success -> { loadInv(id); _msg.value = "Payment recorded!"; onDone() }
+                is Result.Error   -> if (r.code == 409 && r.message == "overpayment") onNeedsConfirm() else _msg.value = r.message
+            }
+        }
     }
 
     fun sendReceipt(id: String, sms: Boolean = true, email: Boolean = true, emails: List<String> = emptyList(), phones: List<String> = emptyList(), sendReviewRequest: Boolean = false, onDone: () -> Unit) {
@@ -631,6 +639,7 @@ fun PaymentScreen(
     var method      by remember { mutableStateOf("cash") }
     var notes       by remember { mutableStateOf("") }
     var paying      by remember { mutableStateOf(false) }
+    var showOverpay by remember { mutableStateOf(false) }   // P2.27 #3 overpayment confirm
     var showQr      by remember { mutableStateOf(false) }
     var amountText  by remember { mutableStateOf("") }
 
@@ -735,7 +744,9 @@ fun PaymentScreen(
                     else { Icon(Icons.Default.Link, null); Spacer(Modifier.width(8.dp)); Text("Send Payment Link — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
                 }
                 else -> Button(
-                    onClick = { paying = true; vm.recordPayment(invoiceId, method, chargeAmount, notes.ifBlank { null }) { paying = false; onPaid(invoiceId) } },
+                    onClick = { paying = true; vm.recordPayment(invoiceId, method, chargeAmount, notes.ifBlank { null },
+                        onNeedsConfirm = { paying = false; showOverpay = true },
+                        onDone = { paying = false; onPaid(invoiceId) }) },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !paying && chargeAmount > 0
@@ -743,6 +754,24 @@ fun PaymentScreen(
                     if (paying) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                     else { Icon(Icons.Default.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("Record Payment — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
                 }
+            }
+
+            // P2.27 #3: overpayment confirm — payment exceeds the remaining balance.
+            if (showOverpay) {
+                val bal = inv?.balance_due ?: 0.0
+                AlertDialog(
+                    onDismissRequest = { showOverpay = false },
+                    title = { Text("Payment exceeds balance", fontWeight = FontWeight.Bold) },
+                    text = { Text("This payment of ${formatMoney(chargeAmount)} exceeds the remaining balance of ${formatMoney(bal)} by ${formatMoney(chargeAmount - bal)}. Record it anyway?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showOverpay = false; paying = true
+                            vm.recordPayment(invoiceId, method, chargeAmount, notes.ifBlank { null },
+                                confirmOverpayment = true, onDone = { paying = false; onPaid(invoiceId) })
+                        }) { Text("Record anyway", fontWeight = FontWeight.SemiBold) }
+                    },
+                    dismissButton = { TextButton(onClick = { showOverpay = false }) { Text("Cancel") } }
+                )
             }
 
             Spacer(Modifier.height(24.dp))

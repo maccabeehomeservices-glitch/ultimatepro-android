@@ -419,9 +419,10 @@ class CrmRepository @Inject constructor(
         call { api.sendInvoice(id, mapOf("send_sms" to sendSms, "send_email" to sendEmail, "emails" to emails, "phones" to phones)) }
     suspend fun signInvoice(id: String, signature: String) =
         call { api.signInvoice(id, mapOf("signature" to signature)) }
-    suspend fun recordInvoicePayment(id: String, method: String, amount: Double?, notes: String? = null) =
+    suspend fun recordInvoicePayment(id: String, method: String, amount: Double?, notes: String? = null, confirmOverpayment: Boolean = false) =
         call { api.recordInvoicePayment(id, buildMap {
             put("method", method); if (amount != null) put("amount", amount); if (notes != null) put("notes", notes)
+            if (confirmOverpayment) put("confirm_overpayment", true)   // P2.27 #3
         }) }
     suspend fun sendInvoiceReceipt(id: String, sendSms: Boolean = true, sendEmail: Boolean = true, emails: List<String> = emptyList(), phones: List<String> = emptyList(), sendReviewRequest: Boolean = false) =
         call { api.sendInvoiceReceipt(id, mapOf("send_sms" to sendSms, "send_email" to sendEmail, "emails" to emails, "phones" to phones, "send_review_request" to sendReviewRequest)) }
