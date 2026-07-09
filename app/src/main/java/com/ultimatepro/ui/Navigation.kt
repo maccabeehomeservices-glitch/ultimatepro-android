@@ -81,7 +81,7 @@ object Route {
     const val REPORTS            = "reports"
     // Payroll
     const val PAYROLL            = "payroll"
-    const val TECH_REPORT        = "payroll/tech/{userId}"
+    const val ACTOR_REPORT       = "payroll/report/{actorType}/{id}"   // P2.27 Bundle-4 per-actor report
     const val TECH_PAY_SETTINGS  = "payroll/settings/{userId}"
     const val REIMBURSEMENTS     = "payroll/reimbursements"
     const val PROFIT_SIMULATOR   = "payroll/simulator"
@@ -481,7 +481,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { estimateId -> navController.navigate("estimates/$estimateId/sign") },
                     onSend             = { estimateId -> navController.navigate("estimates/$estimateId/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
@@ -496,7 +496,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
@@ -510,7 +510,7 @@ fun App(
                     onBack             = { navController.popBackStack() },
                     onSign             = { eid -> navController.navigate("estimates/$eid/sign") },
                     onSend             = { eid -> navController.navigate("estimates/$eid/send") },
-                    onAddFromPricebook = { navController.navigate(Route.PRICEBOOK_ALL) },
+                    onAddFromPricebook = { t -> pickerVm.clearPicked(); navController.navigate(Route.PRICEBOOK_ALL + "?type=$t") },  // P2.22 + P2.24 (clear stale picks at nav time)
                     pickerVm           = pickerVm
                 )
             }
@@ -718,12 +718,16 @@ fun App(
             }
             // Flat picker — uses an activity-scoped PricebookPickerViewModel so the same
             // VM instance is shared with the calling Estimate/Invoice screen. No back-stack walk.
-            composable(Route.PRICEBOOK_ALL) {
+            composable(
+                Route.PRICEBOOK_ALL + "?type={type}",
+                listOf(navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null })
+            ) {
                 val activity = LocalContext.current as ComponentActivity
                 val pickerVm: PricebookPickerViewModel = hiltViewModel(activity)
                 PricebookItemListScreen(
                     categoryId   = null,
                     categoryName = "All Items",
+                    filter       = it.arguments?.getString("type"),   // P2.22: labor|material picker filter
                     vm           = pickerVm,
                     onItem       = { item -> navController.navigate("pricebook/item/${item.id}") },
                     onBack       = { navController.popBackStack() },
@@ -787,16 +791,21 @@ fun App(
             // ── Payroll hub ───────────────────────────────────────────────
             composable(Route.PAYROLL) {
                 PayrollScreen(
-                    onTechDetail    = { navController.navigate("payroll/tech/$it") },
+                    onActorDetail   = { actorType, id -> navController.navigate("payroll/report/$actorType/$id") },
                     onTechSettings  = { navController.navigate("payroll/settings/$it") },
                     onReimbursements= { navController.navigate(Route.REIMBURSEMENTS) },
                     onSimulator     = { navController.navigate(Route.PROFIT_SIMULATOR) },
                     onBack          = { navController.popBackStack() }
                 )
             }
-            composable(Route.TECH_REPORT, listOf(navArgument("userId") { type = NavType.StringType })) {
-                TechReportScreen(userId = it.arguments?.getString("userId") ?: "",
-                    onBack = { navController.popBackStack() })
+            composable(Route.ACTOR_REPORT, listOf(
+                navArgument("actorType") { type = NavType.StringType },
+                navArgument("id") { type = NavType.StringType }
+            )) {
+                ActorReportScreen(
+                    actorType = it.arguments?.getString("actorType") ?: "tech",
+                    id        = it.arguments?.getString("id") ?: "",
+                    onBack    = { navController.popBackStack() })
             }
             composable(Route.TECH_PAY_SETTINGS, listOf(navArgument("userId") { type = NavType.StringType })) {
                 TechPaySettingsScreen(userId = it.arguments?.getString("userId") ?: "",

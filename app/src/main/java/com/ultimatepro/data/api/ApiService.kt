@@ -100,8 +100,7 @@ interface ApiService {
     @PUT("customers/{id}")
     suspend fun updateCustomer(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Customer>
 
-    @DELETE("customers/{id}")
-    suspend fun deleteCustomer(@Path("id") id: String): Response<Map<String, String>>
+    // P2.21: DELETE customers/{id} removed — customers are permanent (backend 403).
 
     @GET("customers/{id}/stats")
     suspend fun getCustomerStats(@Path("id") id: String): Response<Map<String, Any>>
@@ -384,8 +383,7 @@ interface ApiService {
     @POST("payments")
     suspend fun recordPayment(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
-    @POST("payments/scanpay/charge")
-    suspend fun scanpayCharge(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
+    // P2.5: payments/scanpay/charge removed — phantom (no backend route, no caller).
 
     @POST("payments/scanpay-qr")
     suspend fun createScanPayQr(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ScanPayQrResponse>
@@ -579,8 +577,18 @@ interface ApiService {
     @GET("payroll/job-report")
     suspend fun getJobReport(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
 
-    @GET("payroll/tech-report/{userId}")
-    suspend fun getTechReport(@Path("userId") userId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    // P2.27 (Bundle 4): the NEW per-actor reports that web + the report PDFs use — same
+    // reference columns (payment-method split, parts, tip, fees, balance) across actor types.
+    @GET("reports/tech/{userId}")
+    suspend fun getActorReportTech(@Path("userId") userId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/roster/{rosterId}")
+    suspend fun getActorReportRoster(@Path("rosterId") rosterId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/source/{sourceId}")
+    suspend fun getActorReportSource(@Path("sourceId") sourceId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/partner/{connectionId}")
+    suspend fun getActorReportPartner(@Path("connectionId") connectionId: String, @QueryMap params: Map<String, String>): Response<Map<String, Any>>
+    @GET("reports/self")
+    suspend fun getActorReportSelf(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
 
     @GET("payroll/profit-by-source")
     suspend fun getProfitBySource(@QueryMap params: Map<String, String>): Response<Map<String, Any>>
@@ -653,12 +661,8 @@ interface ApiService {
     @POST("payroll/simulate")
     suspend fun simulateProfit(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
-    // ── Payroll report sending ─────────────────────────────────────────
-    @POST("payroll/send-report/{userId}")
-    suspend fun sendPayrollReport(
-        @Path("userId") userId: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any?>
-    ): Response<Map<String, Any>>
+    // P2.5: payroll/send-report/{userId} removed — phantom (no backend route).
+    // Real tech-report send is POST /reports/tech/:userId/send (needs from/to).
 
     // ── Full user profile update (includes address, pay, emergency) ────
     @GET("users/{id}")

@@ -61,6 +61,12 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -107,16 +113,6 @@ data class SendToRecipient(
     val phone: String? = null,
     val email: String? = null
 )
-
-// ── Local form model for line items ───────────────────────────────────────
-data class LineItemInput(
-    val name:      String,
-    val qty:       Double,
-    val unitPrice: Double,
-    val isLabor:   Boolean = false   // false = charge/part, true = labor
-) {
-    val total: Double get() = qty * unitPrice
-}
 
 // ── ViewModel state ────────────────────────────────────────────────────────
 data class JobsState(
@@ -1093,7 +1089,9 @@ private fun JobListCard(job: Job, onClick: () -> Unit, onRestore: () -> Unit) {
                         // TZ display fix: render the list time in the job's zone (same helper as
                         // Calendar + Job Detail), not the old SimpleDateFormat device-local path.
                         val schedText = if (job.scheduled_start.isNullOrBlank()) "Unscheduled"
-                            else formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a zzz")
+                            else job.scheduled_end?.takeIf { it != job.scheduled_start }?.let { end ->  // P2.19 window
+                                "${formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a")} – ${formatJobInstant(end, job.effective_timezone, "h:mm a zzz")}"
+                            } ?: formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d · h:mm a zzz")
                         Text(
                             schedText,
                             style = MaterialTheme.typography.labelMedium,
@@ -1561,7 +1559,9 @@ fun JobDetailScreen(
                             Icon(Icons.Default.Inbox, null, tint = AppColors.Green, modifier = Modifier.size(18.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("Received from ${job.sent_by_company_name}", fontWeight = FontWeight.SemiBold, color = AppColors.Green)
-                                if (job.partner_status == "pending") {
+                                // P2.31a: partner_status now holds the receiver's PROPOSED status
+                                // awaiting sender confirm (was the literal 'pending' workflow flag).
+                                if (job.partner_status != null) {
                                     Text("Awaiting confirmation from sender", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -1583,7 +1583,7 @@ fun JobDetailScreen(
                                     Text("Status: ${ps.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            if (job.partner_status == "pending") {
+                            if (job.partner_status != null) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = { vm.confirmPartnerStatus(jobId, "confirm") },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
@@ -1741,7 +1741,11 @@ fun JobDetailScreen(
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "MMM d, yyyy"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                            Text(formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a zzz"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // P2.19: arrival window when a distinct end exists.
+                            val jobTimeText = job.scheduled_end?.takeIf { it != job.scheduled_start }?.let { end ->
+                                "${formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a")} – ${formatJobInstant(end, job.effective_timezone, "h:mm a zzz")}"
+                            } ?: formatJobInstant(job.scheduled_start, job.effective_timezone, "h:mm a zzz")
+                            Text(jobTimeText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -3272,10 +3276,13 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
     // ── Schedule ───────────────────────────────────────────────────────────
     var schedDate  by remember { mutableStateOf("") }
     var schedTime  by remember { mutableStateOf("") }
+    var schedEndTime by remember { mutableStateOf("") }   // P2.19: optional arrival-window "to"
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
     val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = false)
+    val endTimePickerState = rememberTimePickerState(initialHour = 10, initialMinute = 0, is24Hour = false)
 
     // ── Assignment ─────────────────────────────────────────────────────────
     var assignCat             by remember { mutableStateOf("self") }
@@ -3342,6 +3349,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     job.scheduled_start?.let { start ->
                         schedDate = formatJobInstant(start, job.effective_timezone, "yyyy-MM-dd")
                         schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
+                        // P2.19: prefill the window "to" time when a distinct end exists.
+                        job.scheduled_end?.takeIf { it != start }?.let { end ->
+                            schedEndTime = formatJobInstant(end, job.effective_timezone, "HH:mm")
+                        }
                     }
                     sourceType = job.source_type; jobSourceId = job.job_source_id; adChannelId = job.ad_channel_id
                     // P2.16 F2: resolve the dropdown label from the real source fields (job.source
@@ -3402,8 +3413,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
     }
 
     // ── Actual save — calls VM directly, customerId must already be resolved ─
-    fun doSaveNow(forceCustomerId: String? = null, sendToTech: Boolean = false) {
-        val resolvedCustomerId = forceCustomerId ?: customerId
+    fun doSaveNow(forceCustomerId: String? = null, sendToTech: Boolean = false, forceNewCustomer: Boolean = false) {
+        // forceNewCustomer (P2.21 "Create New") → resolve to null so a brand-new customer is
+        // created from the parsed fields, never the matched duplicate (avoids state-timing).
+        val resolvedCustomerId = if (forceNewCustomer) null else (forceCustomerId ?: customerId)
         Log.d("DuplicateSheet", "doSaveNow called with customerId: $resolvedCustomerId (forced=$forceCustomerId)")
         vm.clearError()
         // ── Edit mode: update the existing job. title/priority/line_items are intentionally
@@ -3415,10 +3428,9 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 schedDate.isBlank() -> null
                 else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
             }
-            val srcLabelEdit = buildString {
-                if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
-                if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
-            }
+            // P2.19: arrival-window end — only when date + start + end all set.
+            val scheduledEndEdit = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
+                "${schedDate}T${schedEndTime}" else null
             vm.updateJob(editJobId, mapOf(
                 "type"                    to type,
                 "address"                 to address.ifBlank { null },
@@ -3427,11 +3439,11 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "zip"                     to zip.ifBlank { null },
                 "notes"                   to notes.ifBlank { null },
                 "scheduled_local"         to scheduledEdit,
+                "scheduled_end_local"     to scheduledEndEdit,
                 "lat"                     to lat,
                 "lng"                     to lng,
                 "assigned_to"             to assignedTo,
                 "assigned_roster_tech_id" to assignedRosterTechId,
-                "source"                  to srcLabelEdit.ifBlank { null },
                 "source_type"             to sourceType,
                 "job_source_id"           to jobSourceId,
                 "ad_channel_id"           to adChannelId
@@ -3446,10 +3458,9 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
             schedDate.isBlank() -> null
             else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
         }
-        val srcLabel = buildString {
-            if (selectedSourceName.isNotBlank() && selectedSourceName != "My Company") append(selectedSourceName)
-            if (ticketNum.isNotBlank()) { if (isNotBlank()) append(" / "); append("Ticket #$ticketNum") }
-        }
+        // P2.19: arrival-window end — only when date + start + end all set.
+        val scheduledEnd = if (schedDate.isNotBlank() && schedTime.isNotBlank() && schedEndTime.isNotBlank())
+            "${schedDate}T${schedEndTime}" else null
         val isNonSelf = assignCat != "self" && (assignedTo != null || assignedRosterTechId != null)
         val localRosterTechId = assignedRosterTechId
         vm.createJobWithCustomer(
@@ -3461,11 +3472,11 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "zip"                  to zip.ifBlank { null },
                 "notes"                    to notes.ifBlank { null },
                 "scheduled_local"          to scheduled,
+                "scheduled_end_local"      to scheduledEnd,
                 "lat"                      to lat,
                 "lng"                      to lng,
                 "assigned_to"              to assignedTo,
                 "assigned_roster_tech_id"  to assignedRosterTechId,
-                "source"               to srcLabel.ifBlank { null },
                 "source_type"          to sourceType,
                 "job_source_id"        to jobSourceId,
                 "ad_channel_id"        to adChannelId,
@@ -3852,13 +3863,45 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
+            // P2.19: optional arrival-window "to" time (enabled once a start time is set)
+            OutlinedTextField(
+                value = if (schedEndTime.isNotBlank()) formatDisplayTime(schedEndTime) else "",
+                onValueChange = {},
+                label = { Text("Arrival Window End (optional)") },
+                placeholder = { Text(if (schedTime.isBlank()) "Set a time first" else "Tap to select end time") },
+                readOnly = true,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().clickable(enabled = schedTime.isNotBlank()) { showEndTimePicker = true },
+                shape = RoundedCornerShape(12.dp),
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (schedEndTime.isNotBlank()) {
+                            IconButton(onClick = { schedEndTime = "" }, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Icon(Icons.Default.Schedule, null)
+                    }
+                },
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor        = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor      = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor       = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledTrailingIconColor= MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
             if (schedDate.isNotBlank() || schedTime.isNotBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Event, null, tint = AppColors.Blue, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     val display = buildString {
                         if (schedDate.isNotBlank()) append(formatDisplayDate(schedDate))
-                        if (schedTime.isNotBlank()) { if (isNotBlank()) append(" at "); append(formatDisplayTime(schedTime)) }
+                        if (schedTime.isNotBlank()) {
+                            if (isNotBlank()) append(" at "); append(formatDisplayTime(schedTime))
+                            if (schedEndTime.isNotBlank()) append(" – ${formatDisplayTime(schedEndTime)}")  // P2.19 window
+                        }
                     }
                     Text(display, style = MaterialTheme.typography.bodySmall, color = AppColors.Blue, fontWeight = FontWeight.Medium)
                 }
@@ -3959,6 +4002,28 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
         }
     }
 
+    // P2.19: arrival-window "to" time picker
+    if (showEndTimePicker) {
+        Dialog(onDismissRequest = { showEndTimePicker = false }) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
+                Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Arrival Window End", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(20.dp))
+                    TimePicker(state = endTimePickerState)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showEndTimePicker = false }) { Text("Cancel") }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            schedEndTime = "%02d:%02d".format(endTimePickerState.hour, endTimePickerState.minute)
+                            showEndTimePicker = false
+                        }) { Text("OK") }
+                    }
+                }
+            }
+        }
+    }
+
     // ── Duplicate Customer Sheet ───────────────────────────────────────────
     if (showDuplicateSheet && state.duplicateCustomer != null) {
         val dupInfo = state.duplicateCustomer!!
@@ -3986,6 +4051,15 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 notes = if (notes.isBlank()) "📋 FOLLOW-UP" else "📋 FOLLOW-UP\n\n$notes"
                 vm.clearDuplicateCustomer()
                 doSaveNow(forceCustomerId = dupInfo.customerId)
+            },
+            onCreateNew = {
+                // P2.21: explicit "Create New" — make a brand-new customer from the PARSED
+                // name/phone (not the matched duplicate) and save the job immediately, mirroring
+                // web's primary modal action. Keeps the parsed fields (unlike Cancel).
+                showDuplicateSheet = false
+                customerId = null
+                vm.clearDuplicateCustomer()
+                doSaveNow(forceNewCustomer = true)
             },
             onCancel = {
                 showDuplicateSheet = false
@@ -4087,8 +4161,9 @@ fun DuplicateCustomerSheet(
     onReturningCustomer: () -> Unit,
     onGoBack: (linkedJobId: String?) -> Unit,
     onFollowUp: (linkedJobId: String?) -> Unit,
+    onCreateNew: () -> Unit,
     onCancel: () -> Unit,
-    onDismiss: () -> Unit = onCancel  // swipe-to-dismiss — defaults to cancel behavior
+    onDismiss: () -> Unit = onCreateNew  // swipe-to-dismiss → create new from parsed fields (keeps fields; P2.1l/P2.21)
 ) {
     var step by remember { mutableStateOf<String?>(null) } // null=choose, "go_back", "follow_up"
     var selectedJobId by remember { mutableStateOf<String?>(null) }
@@ -4177,7 +4252,16 @@ fun DuplicateCustomerSheet(
                 ) { Text("Follow-Up", fontWeight = FontWeight.SemiBold) }
                 Text("Continuation of a previous visit, link to original", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
-                // ── Option 4: Cancel ────────────────────────────────────────
+                // ── Option 4: Create New (P2.21) — brand-new customer from parsed fields ──
+                Button(
+                    onClick = onCreateNew,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape  = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
+                ) { Text("Create New Customer", fontWeight = FontWeight.SemiBold) }
+                Text("Not the same person — create a separate customer from the entered name/phone", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+
+                // ── Option 5: Cancel ────────────────────────────────────────
                 OutlinedButton(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth(),
@@ -4242,516 +4326,6 @@ fun DuplicateCustomerSheet(
     }
 }
 
-// ── Job Edit ───────────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun JobEditScreen(jobId: String, onBack: () -> Unit, onSaved: () -> Unit, onEditCustomer: (String) -> Unit = {}, vm: JobViewModel = hiltViewModel(), sourceVm: com.ultimatepro.ui.settings.JobSourceViewModel = hiltViewModel()) {
-    val state by vm.state.collectAsState()
-
-    var title      by remember { mutableStateOf("") }
-    var notes      by remember { mutableStateOf("") }
-    var address    by remember { mutableStateOf("") }
-    var city       by remember { mutableStateOf("") }
-    var stateCode  by remember { mutableStateOf("") }
-    var zip        by remember { mutableStateOf("") }
-    var lat        by remember { mutableStateOf<Double?>(null) }
-    var lng        by remember { mutableStateOf<Double?>(null) }
-    var priority   by remember { mutableStateOf("medium") }
-    var type       by remember { mutableStateOf("service") }
-    var jobSource  by remember { mutableStateOf("") }
-
-    var schedDate      by remember { mutableStateOf("") }
-    var schedTime      by remember { mutableStateOf("") }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
-    val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = false)
-
-    var assignedTo            by remember { mutableStateOf<String?>(null) }
-    var assignedRosterTechId  by remember { mutableStateOf<String?>(null) }
-    var techDropdownOpen      by remember { mutableStateOf(false) }
-
-    var lineItems     by remember { mutableStateOf(listOf<LineItemInput>()) }
-    var showAddCharge by remember { mutableStateOf(false) }
-    var showAddPart   by remember { mutableStateOf(false) }
-
-    var sourceDropOpen   by remember { mutableStateOf(false) }
-    var sourceType       by remember { mutableStateOf<String?>(null) }
-    var jobSourceId      by remember { mutableStateOf<String?>(null) }
-    var adChannelId      by remember { mutableStateOf<String?>(null) }
-    var adChannelCustom  by remember { mutableStateOf("") }
-    var contactDropOpen  by remember { mutableStateOf(false) }
-    var channelDropOpen  by remember { mutableStateOf(false) }
-
-    val contacts by sourceVm.contacts.collectAsState()
-    val channels by sourceVm.channels.collectAsState()
-
-    val priorities = listOf("low", "medium", "high", "urgent")
-    val types      = listOf("service", "installation", "maintenance", "inspection", "repair", "emergency")
-    val sources    = listOf("Google", "Yelp", "Referral", "Website", "Repeat Customer", "Other")
-
-    LaunchedEffect(jobId) { vm.loadJob(jobId); vm.loadTechs(); vm.loadRosterTechs(); sourceVm.loadContacts(); sourceVm.loadChannels() }
-
-    var initialized by remember { mutableStateOf(false) }
-    LaunchedEffect(state.selected) {
-        if (!initialized) {
-            state.selected?.let { job ->
-                initialized = true
-                title     = job.title
-                notes     = job.notes ?: ""
-                address   = job.address ?: ""
-                city      = job.city ?: ""
-                stateCode = job.state ?: ""
-                zip       = job.zip ?: ""
-                priority  = job.priority
-                type      = job.type
-                assignedTo = job.assigned_to
-                assignedRosterTechId = job.assigned_roster_tech_id
-                jobSource = job.source ?: ""
-                sourceType = job.source_type
-                jobSourceId = job.job_source_id
-                adChannelId = job.ad_channel_id
-                adChannelCustom = job.ad_channel_custom ?: ""
-                job.scheduled_start?.let { start ->
-                    // TZ 3/3: show the job-zone wall-clock so editing doesn't shift the time.
-                    schedDate = formatJobInstant(start, job.effective_timezone, "yyyy-MM-dd")
-                    schedTime = formatJobInstant(start, job.effective_timezone, "HH:mm")
-                }
-                lat = job.lat
-                lng = job.lng
-                lineItems = job.line_items.map { li -> LineItemInput(li.name, li.quantity, li.unit_price) }
-            }
-        }
-    }
-
-    val subtotal         = lineItems.sumOf { it.total }
-    val assignedTech     = state.techs.find { it.id == assignedTo }
-    val assignedRosterTech = state.rosterTechs.find { it.id == assignedRosterTechId }
-    val job              = state.selected
-
-    fun doSave() {
-        if (title.isBlank()) return
-        // TZ 3/3: send scheduled_local wall-clock + coords; backend converts (Path B).
-        // Date-only defaults to noon; blank date stays null (F2).
-        val scheduled = when {
-            schedDate.isBlank() -> null
-            else                -> "${schedDate}T${schedTime.ifBlank { "12:00" }}"
-        }
-        val liBodies = lineItems.map { li -> mapOf("name" to li.name, "quantity" to li.qty, "unit_price" to li.unitPrice, "total" to li.total) }
-        vm.updateJob(jobId, mapOf(
-            "title"            to title,
-            "type"             to type,
-            "priority"         to priority,
-            "address"          to address.ifBlank { null },
-            "city"             to city.ifBlank { null },
-            "state"            to stateCode.ifBlank { null },
-            "zip"              to zip.ifBlank { null },
-            "notes"            to notes.ifBlank { null },
-            "source_type"      to sourceType,
-            "job_source_id"    to jobSourceId,
-            "ad_channel_id"    to adChannelId,
-            "ad_channel_custom"        to adChannelCustom.ifBlank { null },
-            "scheduled_local"          to scheduled,
-            "lat"                      to lat,
-            "lng"                      to lng,
-            "assigned_to"              to assignedTo,
-            "assigned_roster_tech_id"  to assignedRosterTechId,
-            "line_items"               to liBodies
-        )) { onSaved() }
-    }
-
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(if (job != null) "Edit ${job.job_number}" else "Edit Job", fontWeight = FontWeight.Bold) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            actions = {
-                TextButton(onClick = { doSave() }, enabled = title.isNotBlank()) {
-                    Text("Save", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        )
-    }) { padding ->
-        if (!initialized && job == null) { LoadingView(); return@Scaffold }
-
-        Column(
-            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // ── Customer (read-only) ──────────────────────────────────────
-            job?.let {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(job.customerName, fontWeight = FontWeight.SemiBold)
-                            job.cust_phone?.let { ph -> Text(ph, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        }
-                        TextButton(onClick = { onEditCustomer(job.customer_id) }) { Text("Edit →") }
-                    }
-                }
-            }
-
-            // ── JOB INFO ─────────────────────────────────────────────────
-            SectionLabel("JOB INFO")
-            OutlinedTextField(title, { title = it }, label = { Text("Title *") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-
-            // ── TYPE ─────────────────────────────────────────────────────
-            SectionLabel("TYPE")
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(types) { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(t.replaceFirstChar { it.uppercase() }) }) }
-            }
-
-            // ── PRIORITY ─────────────────────────────────────────────────
-            SectionLabel("PRIORITY")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                priorities.forEach { p -> FilterChip(selected = priority == p, onClick = { priority = p }, label = { Text(p.replaceFirstChar { it.uppercase() }) }, modifier = Modifier.weight(1f)) }
-            }
-
-            // ── LOCATION ─────────────────────────────────────────────────
-            SectionLabel("LOCATION")
-            PlacesAddressField(
-                value = address,
-                onValueChange = { address = it },
-                onPlaceSelected = { street, c, s, z, la, ln -> address = street; city = c; stateCode = s; zip = z; lat = la; lng = ln },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true, modifier = Modifier.weight(2f), shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(stateCode, { stateCode = it }, label = { Text("State") }, singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(zip, { zip = it }, label = { Text("ZIP") }, singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            }
-
-            // ── NOTES ────────────────────────────────────────────────────
-            SectionLabel("NOTES")
-            OutlinedTextField(notes, { notes = it }, label = { Text("Notes for technician") }, minLines = 3, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-
-            // ── SCHEDULE ─────────────────────────────────────────────────
-            SectionLabel("SCHEDULE")
-            OutlinedTextField(
-                value = if (schedDate.isNotBlank()) formatDisplayDate(schedDate) else "",
-                onValueChange = {},
-                label = { Text("Scheduled Date") },
-                placeholder = { Text("Tap to select date") },
-                readOnly = true, singleLine = true,
-                modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
-                shape = RoundedCornerShape(12.dp),
-                trailingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (schedDate.isNotBlank()) IconButton(onClick = { schedDate = "" }, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp)) }
-                        Icon(Icons.Default.CalendarMonth, null)
-                    }
-                },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant)
-            )
-            OutlinedTextField(
-                value = if (schedTime.isNotBlank()) formatDisplayTime(schedTime) else "",
-                onValueChange = {},
-                label = { Text("Scheduled Time") },
-                placeholder = { Text("Tap to select time") },
-                readOnly = true, singleLine = true,
-                modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true },
-                shape = RoundedCornerShape(12.dp),
-                trailingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (schedTime.isNotBlank()) IconButton(onClick = { schedTime = "" }, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp)) }
-                        Icon(Icons.Default.Schedule, null)
-                    }
-                },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant)
-            )
-            if (schedDate.isNotBlank() || schedTime.isNotBlank()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Event, null, tint = AppColors.Blue, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    val display = buildString {
-                        if (schedDate.isNotBlank()) append(formatDisplayDate(schedDate))
-                        if (schedTime.isNotBlank()) { if (isNotBlank()) append(" at "); append(formatDisplayTime(schedTime)) }
-                    }
-                    Text(display, style = MaterialTheme.typography.bodySmall, color = AppColors.Blue, fontWeight = FontWeight.Medium)
-                }
-            }
-
-            // ── ASSIGNMENT ───────────────────────────────────────────────
-            SectionLabel("ASSIGNMENT")
-            ExposedDropdownMenuBox(expanded = techDropdownOpen, onExpandedChange = { techDropdownOpen = it }) {
-                OutlinedTextField(
-                    value = assignedRosterTech?.name ?: assignedTech?.fullName ?: "Unassigned",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Assigned Technician") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = techDropdownOpen) },
-                    leadingIcon = {
-                        when {
-                            assignedRosterTech != null -> Icon(Icons.Default.Engineering, null, tint = AppColors.Blue)
-                            assignedTech != null -> {
-                                val color = try { Color(android.graphics.Color.parseColor(assignedTech.color ?: "#1565C0")) } catch (e: Exception) { AppColors.Blue }
-                                AvatarCircle(assignedTech.initials, color, 24.dp)
-                            }
-                            else -> Icon(Icons.Default.PersonOutline, null)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                ExposedDropdownMenu(expanded = techDropdownOpen, onDismissRequest = { techDropdownOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Unassigned", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        onClick = { assignedTo = null; assignedRosterTechId = null; techDropdownOpen = false },
-                        leadingIcon = { Icon(Icons.Default.PersonOutline, null) }
-                    )
-                    if (state.rosterTechs.isNotEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("TECHNICIANS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AppColors.Blue) },
-                            onClick = {},
-                            enabled = false
-                        )
-                        state.rosterTechs.forEach { rt ->
-                            DropdownMenuItem(
-                                text = { Text(rt.name) },
-                                onClick = { assignedRosterTechId = rt.id; assignedTo = null; techDropdownOpen = false },
-                                leadingIcon = { Icon(Icons.Default.Engineering, null, tint = AppColors.Blue) }
-                            )
-                        }
-                    }
-                    if (state.techs.isNotEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("APP USERS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            onClick = {},
-                            enabled = false
-                        )
-                        state.techs.forEach { tech ->
-                            val techColor = try { Color(android.graphics.Color.parseColor(tech.color ?: "#1565C0")) } catch (e: Exception) { AppColors.Blue }
-                            DropdownMenuItem(
-                                text = { Text(tech.fullName) },
-                                onClick = { assignedTo = tech.id; assignedRosterTechId = null; techDropdownOpen = false },
-                                leadingIcon = { AvatarCircle(tech.initials, techColor, 28.dp) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── CHARGES & PARTS ──────────────────────────────────────────
-            SectionLabel("CHARGES & PARTS")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showAddCharge = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add Charge") }
-                OutlinedButton(onClick = { showAddPart = true },   modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add Part") }
-            }
-            if (lineItems.isNotEmpty()) {
-                Card(shape = RoundedCornerShape(12.dp)) {
-                    Column(Modifier.padding(4.dp)) {
-                        lineItems.forEachIndexed { idx, li ->
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(li.name, fontWeight = FontWeight.Medium)
-                                    Text("${formatQty(li.qty)} × ${formatMoney(li.unitPrice)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Text(formatMoney(li.total), fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.width(4.dp))
-                                IconButton(onClick = { lineItems = lineItems.toMutableList().also { it.removeAt(idx) } }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            }
-                            if (idx < lineItems.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 12.dp))
-                        }
-                    }
-                }
-                Card(colors = CardDefaults.cardColors(containerColor = AppColors.Blue.copy(.08f)), shape = RoundedCornerShape(12.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("Subtotal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${lineItems.size} item${if (lineItems.size != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(formatMoney(subtotal), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.Blue)
-                    }
-                }
-            }
-
-            // ── SOURCE ───────────────────────────────────────────────────
-            SectionLabel("SOURCE")
-            Text("How did this job come in?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("network" to "Network", "external_contact" to "Source Contact", "own_company" to "Own Company").forEach { (key, label) ->
-                    FilterChip(
-                        selected = sourceType == key,
-                        onClick  = {
-                            sourceType = if (sourceType == key) null else key
-                            if (sourceType != "external_contact") { jobSourceId = null }
-                            if (sourceType != "own_company") { adChannelId = null; adChannelCustom = "" }
-                        },
-                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            when (sourceType) {
-                "external_contact" -> {
-                    if (contacts.isEmpty()) {
-                        Text("Add source contacts in Settings → Job Sources", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        val selectedContact = contacts.find { it.id == jobSourceId }
-                        ExposedDropdownMenuBox(expanded = contactDropOpen, onExpandedChange = { contactDropOpen = it }) {
-                            OutlinedTextField(
-                                value = selectedContact?.name ?: "Select source contact…", onValueChange = {}, readOnly = true,
-                                label = { Text("Source Contact") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = contactDropOpen) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(), shape = RoundedCornerShape(12.dp)
-                            )
-                            ExposedDropdownMenu(expanded = contactDropOpen, onDismissRequest = { contactDropOpen = false }) {
-                                DropdownMenuItem(text = { Text("— None —", color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = { jobSourceId = null; jobSource = ""; contactDropOpen = false })
-                                contacts.filter { it.isActive }.forEach { c ->
-                                    DropdownMenuItem(
-                                        text = { Column { Text(c.name); c.companyName?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } } },
-                                        onClick = { jobSourceId = c.id; jobSource = c.name; contactDropOpen = false }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                "own_company" -> {
-                    val selectedChannel = channels.find { it.id == adChannelId }
-                    ExposedDropdownMenuBox(expanded = channelDropOpen, onExpandedChange = { channelDropOpen = it }) {
-                        OutlinedTextField(
-                            value = selectedChannel?.name ?: "Select ad channel…", onValueChange = {}, readOnly = true,
-                            label = { Text("Ad Channel") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = channelDropOpen) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(), shape = RoundedCornerShape(12.dp)
-                        )
-                        ExposedDropdownMenu(expanded = channelDropOpen, onDismissRequest = { channelDropOpen = false }) {
-                            DropdownMenuItem(text = { Text("— None —", color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = { adChannelId = null; jobSource = ""; channelDropOpen = false })
-                            channels.filter { it.isActive }.forEach { ch ->
-                                DropdownMenuItem(
-                                    text = { Text(ch.name) },
-                                    onClick = { adChannelId = ch.id; jobSource = ch.name; if (ch.name == "Other") adChannelCustom = ""; channelDropOpen = false }
-                                )
-                            }
-                        }
-                    }
-                    if (selectedChannel?.name == "Other") {
-                        OutlinedTextField(adChannelCustom, { adChannelCustom = it }, label = { Text("Specify source") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                    }
-                }
-                "network" -> Text("This job came from your contractor network.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else      -> Text("Source: Unassigned", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            state.error?.let {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), shape = RoundedCornerShape(8.dp)) {
-                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            Spacer(Modifier.height(40.dp))
-        }
-    }
-
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
-                        cal.timeInMillis = millis
-                        schedDate = "%04d-%02d-%02d".format(cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
-        ) { DatePicker(state = datePickerState) }
-    }
-    if (showTimePicker) {
-        Dialog(onDismissRequest = { showTimePicker = false }) {
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
-                Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Select Time", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(20.dp))
-                    TimePicker(state = timePickerState)
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
-                        Spacer(Modifier.width(8.dp))
-                        TextButton(onClick = { schedTime = "%02d:%02d".format(timePickerState.hour, timePickerState.minute); showTimePicker = false }) { Text("OK") }
-                    }
-                }
-            }
-        }
-    }
-    if (showAddCharge) { AddLineItemDialog("Add Charge", "e.g. Labor, Service Call, Diagnostic", { li -> lineItems = lineItems + li; showAddCharge = false }, { showAddCharge = false }) }
-    if (showAddPart)   { AddLineItemDialog("Add Part",   "e.g. Spring, Cable, Motor",            { li -> lineItems = lineItems + li; showAddPart = false },   { showAddPart = false }) }
-}
-
-// ── Add Line Item Dialog ───────────────────────────────────────────────────
-@Composable
-private fun AddLineItemDialog(
-    title:     String,
-    hint:      String,
-    onAdd:     (LineItemInput) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var name  by remember { mutableStateOf("") }
-    var qty   by remember { mutableStateOf("1") }
-    var price by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    name, { name = it },
-                    label = { Text("Description *") },
-                    placeholder = { Text(hint) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        qty, { qty = it },
-                        label = { Text("Qty") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-                    OutlinedTextField(
-                        price, { price = it },
-                        label = { Text("Unit Price ($)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-                }
-                val q = qty.toDoubleOrNull() ?: 1.0
-                val p = price.toDoubleOrNull() ?: 0.0
-                if (p > 0) {
-                    Text(
-                        "Total: ${formatMoney(q * p)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.Blue,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        onAdd(LineItemInput(name.trim(), qty.toDoubleOrNull() ?: 1.0, price.toDoubleOrNull() ?: 0.0))
-                    }
-                },
-                enabled = name.isNotBlank(),
-                shape = RoundedCornerShape(8.dp)
-            ) { Text("Add") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 private fun formatDisplayDate(isoDate: String): String {
     return try {
@@ -4786,104 +4360,109 @@ fun PlacesAddressField(
     val context      = LocalContext.current
     val placesClient = remember { Places.createClient(context) }
     var predictions  by remember { mutableStateOf<List<AutocompletePrediction>>(emptyList()) }
-    var expanded     by remember { mutableStateOf(false) }
+    var showSuggestions by remember { mutableStateOf(false) }
+    // P2.18: skip the debounced query for one change after a programmatic set (select/clear)
+    // so choosing a suggestion doesn't immediately reopen the dropdown.
+    var suppressQuery by remember { mutableStateOf(false) }
+    var fieldSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+
+    // P2.18: DEBOUNCE (~300ms). The old code called Places on every keystroke AND surfaced
+    // suggestions in a focus-stealing DropdownMenu, so the IME (keyboard) was dismissed per
+    // letter. Now a single debounced request runs after typing settles; suggestions render in
+    // a non-focus-stealing Popup (below) so the keyboard stays up continuously.
+    LaunchedEffect(value) {
+        if (suppressQuery) { suppressQuery = false; return@LaunchedEffect }
+        if (value.trim().length < 3) { predictions = emptyList(); showSuggestions = false; return@LaunchedEffect }
+        delay(300)
+        val req = FindAutocompletePredictionsRequest.builder().setQuery(value).build()
+        placesClient.findAutocompletePredictions(req)
+            .addOnSuccessListener { resp ->
+                predictions = resp.autocompletePredictions
+                showSuggestions = predictions.isNotEmpty()
+            }
+            .addOnFailureListener { showSuggestions = false }
+    }
+
+    val selectPrediction: (AutocompletePrediction) -> Unit = { prediction ->
+        showSuggestions = false
+        val placeFields = listOf(Place.Field.ADDRESS_COMPONENTS, Place.Field.ADDRESS, Place.Field.LAT_LNG)
+        placesClient.fetchPlace(FetchPlaceRequest.newInstance(prediction.placeId, placeFields))
+            .addOnSuccessListener { resp ->
+                var streetNum = ""; var route = ""; var city = ""; var state = ""; var zip = ""
+                resp.place.addressComponents?.asList()?.forEach { comp ->
+                    when {
+                        "street_number" in comp.types -> streetNum = comp.name
+                        "route"         in comp.types -> route     = comp.name
+                        "locality"      in comp.types -> city      = comp.name
+                        "administrative_area_level_1" in comp.types -> state = comp.shortName ?: comp.name
+                        "postal_code"   in comp.types -> zip       = comp.name
+                    }
+                }
+                val street = buildString {
+                    if (streetNum.isNotBlank()) append(streetNum)
+                    if (route.isNotBlank()) { if (isNotBlank()) append(" "); append(route) }
+                }.ifBlank { resp.place.address ?: prediction.getFullText(null).toString() }
+                suppressQuery = true
+                onValueChange(street)
+                onPlaceSelected(street, city, state, zip, resp.place.latLng?.latitude, resp.place.latLng?.longitude)
+            }
+            .addOnFailureListener {
+                suppressQuery = true
+                onValueChange(prediction.getFullText(null).toString())
+            }
+    }
 
     Box(modifier) {
         OutlinedTextField(
             value         = value,
-            onValueChange = { text ->
-                onValueChange(text)
-                if (text.length >= 3) {
-                    val req = FindAutocompletePredictionsRequest.builder()
-                        .setQuery(text)
-                        .build()
-                    placesClient.findAutocompletePredictions(req)
-                        .addOnSuccessListener { resp ->
-                            predictions = resp.autocompletePredictions
-                            expanded    = predictions.isNotEmpty()
-                        }
-                        .addOnFailureListener { expanded = false }
-                } else {
-                    predictions = emptyList()
-                    expanded    = false
-                }
-            },
+            onValueChange = { onValueChange(it) },   // P2.18: no inline Places call — the debounced effect drives it
             label      = { Text("Street") },
             singleLine = true,
-            modifier   = Modifier.fillMaxWidth(),
+            modifier   = Modifier.fillMaxWidth().onGloballyPositioned { fieldSize = it.size },
             shape      = RoundedCornerShape(12.dp),
             trailingIcon = {
                 if (value.isNotBlank()) {
                     IconButton(
-                        onClick   = { onValueChange(""); predictions = emptyList(); expanded = false },
+                        onClick   = { suppressQuery = true; onValueChange(""); predictions = emptyList(); showSuggestions = false },
                         modifier  = Modifier.size(36.dp)
                     ) { Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp)) }
                 }
             }
         )
 
-        DropdownMenu(
-            expanded          = expanded,
-            onDismissRequest  = { expanded = false },
-            modifier          = Modifier.fillMaxWidth()
-        ) {
-            predictions.take(5).forEach { prediction ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(
-                                prediction.getPrimaryText(null).toString(),
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                prediction.getSecondaryText(null).toString(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    onClick = {
-                        expanded = false
-                        val placeFields = listOf(
-                            Place.Field.ADDRESS_COMPONENTS,
-                            Place.Field.ADDRESS,
-                            Place.Field.LAT_LNG
-                        )
-                        placesClient.fetchPlace(
-                            FetchPlaceRequest.newInstance(prediction.placeId, placeFields)
-                        )
-                            .addOnSuccessListener { resp ->
-                                var streetNum = ""
-                                var route     = ""
-                                var city      = ""
-                                var state     = ""
-                                var zip       = ""
-                                resp.place.addressComponents?.asList()?.forEach { comp ->
-                                    when {
-                                        "street_number" in comp.types -> streetNum = comp.name
-                                        "route"         in comp.types -> route     = comp.name
-                                        "locality"      in comp.types -> city      = comp.name
-                                        "administrative_area_level_1" in comp.types ->
-                                            state = comp.shortName ?: comp.name
-                                        "postal_code"   in comp.types -> zip       = comp.name
-                                    }
+        if (showSuggestions && predictions.isNotEmpty()) {
+            // P2.18: focusable=false Popup anchored directly under the field → keyboard stays up.
+            Popup(
+                offset = IntOffset(0, fieldSize.height),
+                properties = PopupProperties(focusable = false),
+                onDismissRequest = { showSuggestions = false }
+            ) {
+                Surface(
+                    modifier = Modifier.width(with(density) { fieldSize.width.toDp() }),
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column {
+                        predictions.take(5).forEach { prediction ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { selectPrediction(prediction) }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Column {
+                                    Text(prediction.getPrimaryText(null).toString(), fontWeight = FontWeight.Medium)
+                                    Text(
+                                        prediction.getSecondaryText(null).toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                val street = buildString {
-                                    if (streetNum.isNotBlank()) append(streetNum)
-                                    if (route.isNotBlank()) {
-                                        if (isNotBlank()) append(" ")
-                                        append(route)
-                                    }
-                                }.ifBlank { resp.place.address
-                                    ?: prediction.getFullText(null).toString() }
-                                onValueChange(street)
-                                onPlaceSelected(street, city, state, zip, resp.place.latLng?.latitude, resp.place.latLng?.longitude)
                             }
-                            .addOnFailureListener {
-                                onValueChange(prediction.getFullText(null).toString())
-                            }
+                        }
                     }
-                )
+                }
             }
         }
     }

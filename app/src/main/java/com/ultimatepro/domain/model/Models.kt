@@ -58,6 +58,7 @@ data class Company(
     val zip: String? = null,
     val website: String? = null,
     val tagline: String? = null,
+    val default_terms: String? = null,
     val logo_url: String? = null,
     val ultimatecrm_id: String? = null,
     val timezone: String = "America/New_York",

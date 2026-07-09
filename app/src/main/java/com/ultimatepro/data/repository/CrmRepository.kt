@@ -192,7 +192,7 @@ class CrmRepository @Inject constructor(
     suspend fun createCustomer(data: Map<String, Any?>)                = call { api.createCustomer(data) }
     suspend fun getCustomer(id: String)                                = call { api.getCustomer(id) }
     suspend fun updateCustomer(id: String, data: Map<String, Any?>)   = call { api.updateCustomer(id, data) }
-    suspend fun deleteCustomer(id: String)                            = call { api.deleteCustomer(id) }
+    // P2.21: deleteCustomer removed — customers are permanent (backend returns 403).
     suspend fun getCustomerStats(id: String)                          = call { api.getCustomerStats(id) }
 
     @Suppress("UNCHECKED_CAST")
@@ -288,19 +288,25 @@ class CrmRepository @Inject constructor(
         return when (val r = call { api.getJobCompletion(id) }) {
             is Result.Success -> {
                 val m = r.data
+                // P2.23 F-a: the backend returns numeric fields as JSON STRINGS ("56.00"), so the
+                // old `as? Double` yielded null → 0.0 (the $56 tech-paid part read back as $0, which
+                // is what looked like a "part not captured" write-path gap). Parse String OR Number.
+                fun d(k: String): Double = when (val v = m?.get(k)) {
+                    is Number -> v.toDouble(); is String -> v.toDoubleOrNull() ?: 0.0; else -> 0.0
+                }
                 // Backend returns {} when no completion record exists
                 if (m == null || m["id"] == null) Result.Success(null)
                 else Result.Success(com.ultimatepro.domain.model.JobCompletionDetails(
                     id                   = m["id"] as? String ?: "",
                     job_id               = m["job_id"] as? String ?: "",
                     parts_paid_by        = m["parts_paid_by"] as? String,
-                    parts_amount         = (m["parts_amount"] as? Double) ?: 0.0,
+                    parts_amount         = d("parts_amount"),
                     payment_collected_by = m["payment_collected_by"] as? String,
-                    cc_fee_amount        = (m["cc_fee_amount"] as? Double) ?: 0.0,
+                    cc_fee_amount        = d("cc_fee_amount"),
                     cc_fee_paid_by       = m["cc_fee_paid_by"] as? String,
-                    net_after_deductions = (m["net_after_deductions"] as? Double) ?: 0.0,
-                    sender_earns         = (m["sender_earns"] as? Double) ?: 0.0,
-                    receiver_earns       = (m["receiver_earns"] as? Double) ?: 0.0,
+                    net_after_deductions = d("net_after_deductions"),
+                    sender_earns         = d("sender_earns"),
+                    receiver_earns       = d("receiver_earns"),
                     submitted_by         = m["submitted_by"] as? String,
                     confirmed_by         = m["confirmed_by"] as? String,
                     confirmed_at         = m["confirmed_at"] as? String,
@@ -419,9 +425,10 @@ class CrmRepository @Inject constructor(
         call { api.sendInvoice(id, mapOf("send_sms" to sendSms, "send_email" to sendEmail, "emails" to emails, "phones" to phones)) }
     suspend fun signInvoice(id: String, signature: String) =
         call { api.signInvoice(id, mapOf("signature" to signature)) }
-    suspend fun recordInvoicePayment(id: String, method: String, amount: Double?, notes: String? = null) =
+    suspend fun recordInvoicePayment(id: String, method: String, amount: Double?, notes: String? = null, confirmOverpayment: Boolean = false) =
         call { api.recordInvoicePayment(id, buildMap {
             put("method", method); if (amount != null) put("amount", amount); if (notes != null) put("notes", notes)
+            if (confirmOverpayment) put("confirm_overpayment", true)   // P2.27 #3
         }) }
     suspend fun sendInvoiceReceipt(id: String, sendSms: Boolean = true, sendEmail: Boolean = true, emails: List<String> = emptyList(), phones: List<String> = emptyList(), sendReviewRequest: Boolean = false) =
         call { api.sendInvoiceReceipt(id, mapOf("send_sms" to sendSms, "send_email" to sendEmail, "emails" to emails, "phones" to phones, "send_review_request" to sendReviewRequest)) }
@@ -435,7 +442,7 @@ class CrmRepository @Inject constructor(
     suspend fun getPayments(invoiceId: String? = null, customerId: String? = null, status: String? = null, page: Int = 1) =
         call { api.getPayments(invoiceId, customerId, status, page) }
     suspend fun recordPayment(data: Map<String, Any?>)              = call { api.recordPayment(data) }
-    suspend fun scanpayCharge(data: Map<String, Any?>)              = call { api.scanpayCharge(data) }
+    // P2.5: scanpayCharge removed — phantom (no backend payments/scanpay/charge route, no caller).
     suspend fun createScanPayQr(invoiceId: String, amount: Double)  =
         call { api.createScanPayQr(mapOf("invoice_id" to invoiceId, "amount" to amount)) }
     suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) =
@@ -511,7 +518,16 @@ class CrmRepository @Inject constructor(
     suspend fun markEarningsPaid(body: Map<String, Any?>)                        = call { api.markEarningsPaid(body) }
     suspend fun getPermissionSchema()                                            = call { api.getPermissionSchema() }
     suspend fun getJobReport(params: Map<String, String>)                        = call { api.getJobReport(params) }
-    suspend fun getTechReport(userId: String, params: Map<String, String>)       = call { api.getTechReport(userId, params) }
+    // P2.27 (Bundle 4): new per-actor reports (reference columns, same as web + report PDFs).
+    suspend fun getActorReport(actorType: String, id: String, params: Map<String, String>) = call {
+        when (actorType) {
+            "roster"  -> api.getActorReportRoster(id, params)
+            "source"  -> api.getActorReportSource(id, params)
+            "partner" -> api.getActorReportPartner(id, params)
+            "self"    -> api.getActorReportSelf(params)
+            else       -> api.getActorReportTech(id, params)   // user tech
+        }
+    }
     suspend fun getProfitBySource(params: Map<String, String>)                   = call { api.getProfitBySource(params) }
     suspend fun getProfitRules()                                                 = call { api.getProfitRules() }
     suspend fun createProfitRule(data: Map<String, Any?>)                        = call { api.createProfitRule(data) }
@@ -541,13 +557,7 @@ class CrmRepository @Inject constructor(
     // ── Profit simulator ───────────────────────────────────────────────
     suspend fun simulateProfit(data: Map<String, Any?>) = call { api.simulateProfit(data) }
 
-    // ── Send payroll report ─────────────────────────────────────────────
-    suspend fun sendPayrollReport(userId: String, period: String, sendEmail: Boolean = true, sendSms: Boolean = false) =
-        call { api.sendPayrollReport(userId, mapOf(
-            "period"      to period,
-            "send_email"  to sendEmail,
-            "send_sms"    to sendSms
-        ))}
+    // P2.5: sendPayrollReport removed — phantom (payroll/send-report/{userId} has no backend route).
 
     // ── Get single user ─────────────────────────────────────────────────
     suspend fun getUser(id: String) = call { api.getUser(id) }

@@ -94,7 +94,7 @@ class ReimbursementsViewModel @Inject constructor(private val repo: CrmRepositor
     @Suppress("UNCHECKED_CAST")
     private fun parseItem(m: Map<String, Any>) = ReimbursementItem(
         id          = m["id"]?.toString() ?: "",
-        amount      = (m["amount"] as? Number)?.toDouble() ?: 0.0,
+        amount      = (m["amount"] as? Number)?.toDouble() ?: (m["amount"] as? String)?.toDoubleOrNull() ?: 0.0,
         description = m["description"]?.toString() ?: "",
         status      = m["status"]?.toString() ?: "pending",
         job_number  = m["job_number"]?.toString(),

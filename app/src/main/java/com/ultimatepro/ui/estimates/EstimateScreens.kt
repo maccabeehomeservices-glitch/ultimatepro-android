@@ -1,4 +1,5 @@
 package com.ultimatepro.ui.estimates
+import android.util.Log
 
 import coil.compose.AsyncImage
 import android.graphics.Bitmap
@@ -148,7 +149,15 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
         }
     }
 
+    private var loadedExistingId: String? = null
     fun loadExisting(estimateId: String) {
+        // P2.24 ROOT CAUSE: returning from the pricebook picker RECREATES EstimateBuildScreen,
+        // re-firing LaunchedEffect(jobId,customerId) → this loadExisting re-ran and OVERWROTE
+        // lineItems, wiping the just-added item (proven via logs: addFromPricebook newList=2,
+        // then loadExisting SETTING lineItems=1). Guard it to load exactly ONCE per estimate so
+        // re-composition can't clobber user edits. (CREATE has no loadExisting → it never failed.)
+        if (loadedExistingId == estimateId) return
+        loadedExistingId = estimateId
         viewModelScope.launch {
             when (val r = repo.getEstimate(estimateId)) {
                 is Result.Success -> {
@@ -161,7 +170,7 @@ class EstimateBuildViewModel @Inject constructor(private val repo: CrmRepository
                             pricebook_id = li.pricebook_id, price_overridden = li.price_overridden)
                     }
                     _s.update { it.copy(
-                        lineItems = est.line_items.orEmpty().map(toEditable),
+                        lineItems = est.line_items.orEmpty().map(toEditable), // P24LOG below
                         notes = est.notes ?: "", terms = est.terms ?: "",
                         depositRequired = est.deposit_required,
                         depositType = est.deposit_type,
@@ -861,7 +870,7 @@ fun EstimateDetailScreen(
                                 val tierMats = tier.lineItems.filter { it.item_type == "material" }
                                 val tierDisc = tier.lineItems.filter { it.item_type == "discount" }
                                 if (tierSvcs.isNotEmpty()) {
-                                    Text("Services", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Bold)
+                                    Text("Labor", style = MaterialTheme.typography.labelSmall, color = AppColors.Blue, fontWeight = FontWeight.Bold)
                                     tierSvcs.forEach { li -> TierDetailItemRow(li) }
                                 }
                                 if (tierMats.isNotEmpty()) {
@@ -904,7 +913,7 @@ fun EstimateDetailScreen(
                     val svcs = items.filter { it.item_type in listOf("service","labor") }
                     val mats = items.filter { it.item_type == "material" }
                     val disc = items.filter { it.item_type == "discount" }
-                    if (svcs.isNotEmpty()) item { LineItemsCard("SERVICE", svcs) }
+                    if (svcs.isNotEmpty()) item { LineItemsCard("LABOR", svcs) }
                     if (mats.isNotEmpty()) item { LineItemsCard("MATERIALS", mats) }
                     if (disc.isNotEmpty()) item { CRMCard { SectionLabel("DISCOUNTS"); disc.forEach { li -> Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(li.name, fontWeight = FontWeight.Medium); Text("-${formatMoney(li.quantity * li.unit_price)}", color = AppColors.Orange, fontWeight = FontWeight.SemiBold) } } } }
                     item { TotalsCard(e.subtotal, e.tax_total, e.discount_total, e.total) }
@@ -1088,9 +1097,11 @@ fun EstimateBuildScreen(
 ) {
     val st     by vm.state.collectAsState()
     val picked by pickerVm.picked.collectAsState()
-    // Picker is activity-scoped, so its state persists across screens. Clear stale picks
-    // from a previous caller when this screen mounts.
-    LaunchedEffect(Unit) { pickerVm.clearPicked() }
+    // P2.24: DO NOT clear picks on mount. On the EDIT path loadExisting's async
+    // recompositions delayed this mount-time clearPicked() so it fired AFTER the user
+    // returned from the picker, wiping the just-added item (CREATE has no loadExisting, so
+    // it worked). Stale picks are now cleared at NAVIGATION time (onAddFromPricebook in
+    // Navigation.kt) instead, so a returned pick is always consumed by LaunchedEffect(picked).
     var showDiscount by remember { mutableStateOf(false) }
     var depositAmtText by remember { mutableStateOf("") }
     val snack = remember { SnackbarHostState() }
@@ -1249,8 +1260,8 @@ fun EstimateBuildScreen(
                 val tierServices  = tier.lineItems.filter { it.item_type in listOf("service","labor") }
                 val tierMaterials = tier.lineItems.filter { it.item_type == "material" }
                 val tierDiscounts = tier.lineItems.filter { it.item_type == "discount" }
-                LineItemSection("SERVICE", tierServices,
-                    onAdd = { onAddFromPricebook("service") },
+                LineItemSection("LABOR", tierServices,   // P2.22: Services→Labor
+                    onAdd = { onAddFromPricebook("labor") },
                     onRemove = { vm.removeTierLineItem(tIdx, it) },
                     onUpdate = { vm.updateTierLineItem(tIdx, it) })
                 LineItemSection("MATERIALS", tierMaterials,
@@ -1284,7 +1295,7 @@ fun EstimateBuildScreen(
             } else {
                 // Standard mode
                 // Services
-                LineItemSection("SERVICE", vm.services, onAdd = { onAddFromPricebook("service") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
+                LineItemSection("LABOR", vm.services, onAdd = { onAddFromPricebook("labor") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })  // P2.22: Services→Labor
                 // Materials
                 LineItemSection("MATERIALS", vm.materials, onAdd = { onAddFromPricebook("material") }, onRemove = { vm.removeLineItem(it) }, onUpdate = { vm.updateLineItem(it) })
                 // Discounts
@@ -1594,10 +1605,9 @@ fun PresentTiersScreen(
                             val mats = tier.lineItems.filter { it.item_type == "material" }
                             val all  = svcs + mats
                             all.forEach { li ->
-                                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(li.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                    Text(formatMoney(li.total), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                                }
+                                // P2.17 PART 1 — show item image + description + SKU on the
+                                // in-person present screen (reuse the detail GBB row), not just name+price.
+                                TierDetailItemRow(li)
                                 HorizontalDivider()
                             }
                             Spacer(Modifier.height(10.dp))

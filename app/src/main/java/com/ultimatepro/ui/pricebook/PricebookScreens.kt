@@ -517,9 +517,13 @@ fun PricebookItemListScreen(
     val perms by authVm.permissions.collectAsState()
     val role by authVm.role.collectAsState()
 
+    // P2.22: type-filtered picker — `filter` (labor|material) narrows the list; the
+    // "Show all" toggle below clears it as an escape hatch.
+    var showAll by remember(filter) { mutableStateOf(false) }
+    val effFilter = if (showAll) null else filter
     // null or blank categoryId → load all items (no category filter)
-    LaunchedEffect(categoryId, search) {
-        vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, filter)
+    LaunchedEffect(categoryId, search, effFilter) {
+        vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, effFilter)
     }
 
     val pickedCount = picked.values.sumOf { it.qty }
@@ -568,12 +572,24 @@ fun PricebookItemListScreen(
                 value = search, onValueChange = { vm.setSearch(it) },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
+            // P2.22: type filter + "Show all" escape hatch (only when opened for a type)
+            if (filter != null) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(selected = !showAll, onClick = { showAll = false },
+                        label = { Text(if (filter == "material") "Materials only" else "Labor only") })
+                    FilterChip(selected = showAll, onClick = { showAll = true },
+                        label = { Text("Show all") })
+                }
+            }
             if (loading && items.isEmpty()) {
                 LoadingView()
             } else if (error != null && items.isEmpty()) {
                 PricebookErrorView(error!!) {
                     vm.clearError()
-                    vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, filter)
+                    vm.loadItems(categoryId?.takeIf { it.isNotBlank() }, effFilter)
                 }
             } else if (items.isEmpty()) {
                 EmptyView(
@@ -993,7 +1009,7 @@ private fun ItemFormDialog(
     var desc           by remember { mutableStateOf(item?.description ?: "") }
     var price          by remember { mutableStateOf(item?.unit_price?.let { "%.2f".format(it) } ?: "") }
     var costPrice      by remember { mutableStateOf(item?.cost_price?.let { "%.2f".format(it) } ?: "") }
-    var itemType       by remember { mutableStateOf(item?.item_type ?: "service") }
+    var itemType       by remember { mutableStateOf(if (item?.item_type == "material" || item?.item_type == "part") "material" else "labor") }  // P2.14 GAP 3: normalize legacy → labor/material
     var taxable        by remember { mutableStateOf(item?.taxable ?: false) }
     var categoryId     by remember { mutableStateOf(item?.category_id) }
     var catExpanded    by remember { mutableStateOf(false) }
@@ -1066,9 +1082,10 @@ private fun ItemFormDialog(
                     OutlinedTextField(price,     { price     = it }, label = { Text("Price")      }, prefix = { Text("$") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp))
                     OutlinedTextField(costPrice, { costPrice = it }, label = { Text("Cost")       }, prefix = { Text("$") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp))
                 }
-                // Type chips — 2×2 grid so "Discount" is never cut off
+                // P2.14 GAP 3: a pricebook item is Labor or Material (service/discount are
+                // estimate-line concerns, not pricebook item types).
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(listOf("service", "material"), listOf("labor", "discount")).forEach { rowTypes ->
+                    listOf(listOf("labor", "material")).forEach { rowTypes ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             rowTypes.forEach { t ->
                                 FilterChip(
