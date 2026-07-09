@@ -570,59 +570,51 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch {
             _s.update { it.copy(sendToLoading = true, sendToRecipients = emptyList()) }
             val recipients = mutableListOf<SendToRecipient>()
+            val selfId = _s.value.currentUser?.id
 
-            // 1. Assigned roster tech
-            if (job.assigned_roster_tech_id != null) {
-                val existing = _s.value.rosterTechs.find { it.id == job.assigned_roster_tech_id }
-                val tech = if (existing != null) existing else {
-                    val r = repo.getRosterTechs()
-                    if (r is Result.Success) { _s.update { s -> s.copy(rosterTechs = r.data) }; r.data.find { it.id == job.assigned_roster_tech_id } }
-                    else null
-                }
-                tech?.let { recipients.add(SendToRecipient(it.id, it.name, "roster_tech", it.phone, it.email)) }
+            // P2.36: list ALL assignable recipients — self, every team app user,
+            // every roster tech, and active network partners (not just the one
+            // already assigned to this job).
+
+            // 1. Self
+            _s.value.currentUser?.let { u ->
+                recipients.add(SendToRecipient(u.id, "${u.fullName} (You)", "app_user", u.phone, u.email))
             }
 
-            // 2. Assigned app user tech
-            if (job.assigned_to != null) {
-                val existing = _s.value.techs.find { it.id == job.assigned_to }
-                val user = if (existing != null) existing else {
-                    val r = repo.getTechnicians()
-                    if (r is Result.Success) { _s.update { s -> s.copy(techs = r.data) }; r.data.find { it.id == job.assigned_to } }
-                    else null
-                }
-                user?.let { recipients.add(SendToRecipient(it.id, it.fullName, "app_user", it.phone, it.email)) }
+            // 2. All team app users
+            val techs = _s.value.techs.ifEmpty {
+                (repo.getTechnicians() as? Result.Success)?.data?.also { list -> _s.update { s -> s.copy(techs = list) } } ?: emptyList()
+            }
+            techs.filter { it.id != selfId }.forEach {
+                recipients.add(SendToRecipient(it.id, it.fullName, "app_user", it.phone, it.email))
             }
 
-            // 3. Active network partners
+            // 3. All roster techs
+            val roster = _s.value.rosterTechs.ifEmpty {
+                (repo.getRosterTechs() as? Result.Success)?.data?.also { list -> _s.update { s -> s.copy(rosterTechs = list) } } ?: emptyList()
+            }
+            roster.forEach { recipients.add(SendToRecipient(it.id, it.name, "roster_tech", it.phone, it.email)) }
+
+            // 4. Active network partners
             val connR = repo.getActiveConnectionsSimple()
             if (connR is Result.Success) {
-                connR.data.forEach { conn ->
-                    recipients.add(SendToRecipient(conn.partnerId, conn.partnerName, "partner"))
-                }
+                connR.data.forEach { conn -> recipients.add(SendToRecipient(conn.partnerId, conn.partnerName, "partner")) }
             }
 
             _s.update { it.copy(sendToLoading = false, sendToRecipients = recipients) }
         }
     }
 
-    fun notifyRosterTech(jobId: String, techId: String, method: String, techName: String) {
+    // P2.36: send job details to the PICKED tech (roster OR app user) via the
+    // backend notify-tech route, which carries the P3.6 content contract. The
+    // backend now handles method 'both' directly, so no client-side fan-out.
+    fun notifyTech(jobId: String, techId: String, techType: String, method: String, techName: String) {
         viewModelScope.launch {
-            val methods = if (method == "both") listOf("sms", "email") else listOf(method)
-            var errMsg: String? = null
-            methods.forEach { m ->
-                when (val r = repo.notifyRosterTech(jobId, m)) {
-                    is Result.Success -> {}
-                    is Result.Error   -> errMsg = r.message
-                }
+            when (val r = repo.notifyTech(jobId, techId, techType, method)) {
+                is Result.Success -> _s.update { it.copy(sendToMsg = "Job details sent to $techName") }
+                is Result.Error   -> _s.update { it.copy(error = r.message) }
             }
-            if (errMsg != null) _s.update { it.copy(error = errMsg) }
-            else _s.update { it.copy(sendToMsg = "Job details sent to $techName") }
         }
-    }
-
-    fun notifyAppUserTech(jobId: String, userId: String, techName: String) {
-        // App users see assigned jobs in the app; message confirms the assignment is visible
-        _s.update { it.copy(sendToMsg = "Notification sent to $techName") }
     }
 
     fun clearSendToMsg() { _s.update { it.copy(sendToMsg = null) } }
@@ -2389,12 +2381,8 @@ fun JobDetailScreen(
         SendToDialog(
             recipients  = state.sendToRecipients,
             loading     = state.sendToLoading,
-            onNotifyRosterTech = { recipientId, method, name ->
-                vm.notifyRosterTech(jobId, recipientId, method, name)
-                showSendToDialog = false
-            },
-            onNotifyAppUser = { recipientId, name ->
-                vm.notifyAppUserTech(jobId, recipientId, name)
+            onNotifyTech = { recipientId, techType, method, name ->
+                vm.notifyTech(jobId, recipientId, techType, method, name)
                 showSendToDialog = false
             },
             onSendToPartner = { partnerId ->
@@ -2721,15 +2709,16 @@ private fun HistorySection(
 // ── Send To Dialog (unified: roster tech, app user, partner) ──────────────
 @Composable
 private fun SendToDialog(
-    recipients:         List<SendToRecipient>,
-    loading:            Boolean,
-    onNotifyRosterTech: (id: String, method: String, name: String) -> Unit,
-    onNotifyAppUser:    (id: String, name: String) -> Unit,
-    onSendToPartner:    (partnerId: String) -> Unit,
-    onDismiss:          () -> Unit
+    recipients:      List<SendToRecipient>,
+    loading:         Boolean,
+    onNotifyTech:    (id: String, type: String, method: String, name: String) -> Unit,
+    onSendToPartner: (partnerId: String) -> Unit,
+    onDismiss:       () -> Unit
 ) {
     var selected by remember { mutableStateOf<SendToRecipient?>(null) }
     var method   by remember { mutableStateOf("sms") }
+    // P2.36: default the method to SMS (or email if no phone) for any tech.
+    fun defaultMethod(r: SendToRecipient) = if (r.phone != null) "sms" else "email"
 
     val techRecipients    = recipients.filter { it.type in listOf("roster_tech", "app_user") }
     val partnerRecipients = recipients.filter { it.type == "partner" }
@@ -2762,9 +2751,7 @@ private fun SendToDialog(
                                 Modifier.fillMaxWidth()
                                     .clickable {
                                         selected = r
-                                        method = if (r.type == "roster_tech") {
-                                            if (r.phone != null) "sms" else "email"
-                                        } else "push"
+                                        method = defaultMethod(r)
                                     }
                                     .padding(vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -2773,9 +2760,7 @@ private fun SendToDialog(
                                     selected = selected?.id == r.id,
                                     onClick  = {
                                         selected = r
-                                        method = if (r.type == "roster_tech") {
-                                            if (r.phone != null) "sms" else "email"
-                                        } else "push"
+                                        method = defaultMethod(r)
                                     }
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -2818,44 +2803,35 @@ private fun SendToDialog(
 
                     // Notification method for selected recipient
                     selected?.let { sel ->
-                        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                        when (sel.type) {
-                            "roster_tech" -> {
-                                Text(
-                                    "Notify via",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 6.dp)
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (sel.phone != null) {
-                                        FilterChip(
-                                            selected = method == "sms",
-                                            onClick  = { method = "sms" },
-                                            label    = { Text("SMS") }
-                                        )
-                                    }
-                                    if (sel.email != null) {
-                                        FilterChip(
-                                            selected = method == "email",
-                                            onClick  = { method = "email" },
-                                            label    = { Text("Email") }
-                                        )
-                                    }
-                                    if (sel.phone != null && sel.email != null) {
-                                        FilterChip(
-                                            selected = method == "both",
-                                            onClick  = { method = "both" },
-                                            label    = { Text("Both") }
-                                        )
-                                    }
+                        if (sel.type == "roster_tech" || sel.type == "app_user") {
+                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                            Text(
+                                "Notify via",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (sel.phone != null) {
+                                    FilterChip(
+                                        selected = method == "sms",
+                                        onClick  = { method = "sms" },
+                                        label    = { Text("SMS") }
+                                    )
                                 }
-                            }
-                            else -> {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Notifications, null, Modifier.size(16.dp), tint = AppColors.Blue)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("App Notification", style = MaterialTheme.typography.bodySmall)
+                                if (sel.email != null) {
+                                    FilterChip(
+                                        selected = method == "email",
+                                        onClick  = { method = "email" },
+                                        label    = { Text("Email") }
+                                    )
+                                }
+                                if (sel.phone != null && sel.email != null) {
+                                    FilterChip(
+                                        selected = method == "both",
+                                        onClick  = { method = "both" },
+                                        label    = { Text("Both") }
+                                    )
                                 }
                             }
                         }
@@ -2868,9 +2844,8 @@ private fun SendToDialog(
                 onClick = {
                     val sel = selected ?: return@Button
                     when (sel.type) {
-                        "roster_tech" -> onNotifyRosterTech(sel.id, method, sel.name)
-                        "app_user"    -> onNotifyAppUser(sel.id, sel.name)
-                        "partner"     -> onSendToPartner(sel.id)
+                        "roster_tech", "app_user" -> onNotifyTech(sel.id, sel.type, method, sel.name)
+                        "partner"                 -> onSendToPartner(sel.id)
                     }
                 },
                 enabled = selected != null
@@ -3523,7 +3498,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     else -> "email"
                 }
                 val techName = state.rosterTechs.find { it.id == localRosterTechId }?.name ?: "Tech"
-                vm.notifyRosterTech(newJobId, localRosterTechId, method, techName)
+                vm.notifyTech(newJobId, localRosterTechId, "roster_tech", method, techName)
             }
             onSaved()
         }
