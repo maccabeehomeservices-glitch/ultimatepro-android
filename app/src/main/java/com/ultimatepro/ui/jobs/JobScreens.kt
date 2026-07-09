@@ -1559,7 +1559,9 @@ fun JobDetailScreen(
                             Icon(Icons.Default.Inbox, null, tint = AppColors.Green, modifier = Modifier.size(18.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("Received from ${job.sent_by_company_name}", fontWeight = FontWeight.SemiBold, color = AppColors.Green)
-                                if (job.partner_status == "pending") {
+                                // P2.31a: partner_status now holds the receiver's PROPOSED status
+                                // awaiting sender confirm (was the literal 'pending' workflow flag).
+                                if (job.partner_status != null) {
                                     Text("Awaiting confirmation from sender", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -1581,7 +1583,7 @@ fun JobDetailScreen(
                                     Text("Status: ${ps.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            if (job.partner_status == "pending") {
+                            if (job.partner_status != null) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = { vm.confirmPartnerStatus(jobId, "confirm") },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
