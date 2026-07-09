@@ -248,6 +248,7 @@ data class Job(
     val cust_first: String? = null,
     val cust_last: String? = null,
     val cust_phone: String? = null,
+    val cust_phone2: String? = null,   // P2.35: 2nd customer phone, shown in the job's phone section
     val cust_email: String? = null,
     val cust_address: String? = null,
     val cust_city: String? = null,

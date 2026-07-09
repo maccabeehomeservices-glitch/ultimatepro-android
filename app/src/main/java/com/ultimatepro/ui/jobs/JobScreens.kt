@@ -1814,6 +1814,17 @@ fun JobDetailScreen(
                         }
                     }
                 }
+                // P2.35: second customer phone (e.g. a pasted alternate contact)
+                job.cust_phone2?.takeIf { it.isNotBlank() }?.let { ph2 ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(ph2, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$ph2"))) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Phone, null, tint = AppColors.Blue, modifier = Modifier.size(17.dp))
+                        }
+                    }
+                }
                 job.cust_email?.let { em ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Email, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
@@ -3491,13 +3502,18 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 "first_name" to (nameParts.getOrNull(0) ?: ""),
                 "last_name"  to (nameParts.getOrNull(1) ?: ""),
                 "phone"      to custPhone.ifBlank { null },
+                // P2.35: a pasted 2nd phone lands in the dedicated phone2 column so it
+                // shows in the job's phone section (not notes); 3rd+ go to contacts below.
+                "phone2"     to extraCustPhones.firstOrNull()?.takeIf { it.isNotBlank() },
                 "email"      to custEmail.ifBlank { null },
                 "address"    to address.ifBlank { null },
                 "city"       to city.ifBlank { null },
                 "state"      to stateCode.ifBlank { null },
                 "zip"        to zip.ifBlank { null }
             ) else null,
-            extraPhones = extraCustPhones.toList(),
+            // New customer: #2 went to phone2, so only #3+ become customer_contacts.
+            // Existing customer (no customerData): keep all extras as contacts.
+            extraPhones = if (resolvedCustomerId == null && custName.isNotBlank()) extraCustPhones.drop(1) else extraCustPhones.toList(),
             extraEmails = extraCustEmails.toList()
         ) { newJobId ->
             if (sendToTech && localRosterTechId != null && (notifySms || notifyEmail)) {
