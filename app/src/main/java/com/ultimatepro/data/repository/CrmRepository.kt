@@ -154,6 +154,16 @@ class CrmRepository @Inject constructor(
     suspend fun getCompany()                             = call { api.getCompany() }
     suspend fun updateCompany(data: Map<String, Any?>)  = call { api.updateCompany(data) }
 
+    // P3.8: the company's active job types as (key, label) pairs. Empty on error.
+    suspend fun getJobTypes(): List<Pair<String, String>> =
+        when (val r = call { api.getJobTypes() }) {
+            is Result.Success -> r.data.mapNotNull {
+                val k = it["key"] as? String; val l = it["label"] as? String
+                if (k != null && l != null) k to l else null
+            }
+            is Result.Error -> emptyList()
+        }
+
     suspend fun uploadCompanyLogo(file: java.io.File): Result<String> {
         return try {
             val requestFile = file.readBytes().toRequestBody("image/*".toMediaTypeOrNull())

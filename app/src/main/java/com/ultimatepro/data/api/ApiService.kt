@@ -51,6 +51,10 @@ interface ApiService {
     @GET("company/joby-rules")
     suspend fun getJobyRules(): Response<List<Map<String, Any>>>
 
+    // P3.8: the company's editable job-type set (new-job chips read this).
+    @GET("company/job-types")
+    suspend fun getJobTypes(): Response<List<Map<String, Any?>>>
+
     @PUT("company/joby-rules/{id}")
     suspend fun updateJobyRule(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 

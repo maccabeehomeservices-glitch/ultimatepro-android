@@ -127,6 +127,7 @@ data class JobsState(
     val originalTicketText: String          = "",
     val techs:              List<User>      = emptyList(),
     val rosterTechs:        List<com.ultimatepro.domain.model.RosterTech> = emptyList(),
+    val jobTypes:           List<Pair<String, String>> = listOf("service" to "Service", "installation" to "Installation", "maintenance" to "Maintenance", "inspection" to "Inspection", "repair" to "Repair", "emergency" to "Emergency"),  // P3.8 (key to label); replaced by GET /company/job-types
     val jobEstimates:       List<Estimate>  = emptyList(),
     val jobInvoice:         Invoice?        = null,
     val beforePhotos:       List<JobPhoto>  = emptyList(),
@@ -309,6 +310,13 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch {
             val r = repo.getRosterTechs()
             if (r is Result.Success) _s.update { it.copy(rosterTechs = r.data) }
+        }
+    }
+    // P3.8: the company's editable job-type set for the new-job chips.
+    fun loadJobTypes() {
+        viewModelScope.launch {
+            val list = repo.getJobTypes()
+            if (list.isNotEmpty()) _s.update { it.copy(jobTypes = list) }
         }
     }
     fun updateStatus(id: String, status: String, notes: String? = null) {
@@ -3297,10 +3305,10 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
     val contacts by sourceVm.contacts.collectAsState()
     val channels by sourceVm.channels.collectAsState()
 
-    val types = listOf("service", "installation", "maintenance", "inspection", "repair", "emergency")
+    val types = state.jobTypes  // P3.8: (key to label) from GET /company/job-types
 
     // ── Load technicians + current user + source data once when form opens ──
-    LaunchedEffect(Unit) { vm.loadTechs(); vm.loadRosterTechs(); vm.loadCurrentUser(); sourceVm.loadContacts(); sourceVm.loadChannels() }
+    LaunchedEffect(Unit) { vm.loadTechs(); vm.loadRosterTechs(); vm.loadCurrentUser(); vm.loadJobTypes(); sourceVm.loadContacts(); sourceVm.loadChannels() }
 
     // ── Auto-set assignedTo when currentUser loads and category is "self" ──
     val currentUser = state.currentUser
@@ -3671,7 +3679,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
             // ── JOB TYPE ──────────────────────────────────────────────────
             SectionLabel("JOB TYPE")
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(types) { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(t.replaceFirstChar { it.uppercase() }) }) }
+                items(types) { (k, label) -> FilterChip(selected = type == k, onClick = { type = k }, label = { Text(label) }) }
             }
 
             // ── ASSIGN TECHNICIAN ─────────────────────────────────────────
