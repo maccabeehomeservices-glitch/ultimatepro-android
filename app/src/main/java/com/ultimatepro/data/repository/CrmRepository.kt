@@ -371,8 +371,8 @@ class CrmRepository @Inject constructor(
     suspend fun createRosterTech(data: Map<String, Any?>)                = call { api.createRosterTech(data) }
     suspend fun updateRosterTech(id: String, data: Map<String, Any?>)   = call { api.updateRosterTech(id, data) }
     suspend fun deleteRosterTech(id: String)                             = call { api.deleteRosterTech(id) }
-    suspend fun notifyRosterTech(jobId: String, method: String)          =
-        call { api.notifyRosterTech(mapOf("job_id" to jobId, "method" to method)) }
+    suspend fun notifyTech(jobId: String, techId: String, techType: String, method: String) =
+        call { api.notifyRosterTech(mapOf("job_id" to jobId, "tech_id" to techId, "tech_type" to techType, "method" to method)) }
 
     suspend fun updateJobReminderMethod(jobId: String, method: String)   =
         call { api.updateJobReminderMethod(jobId, mapOf("reminder_method" to method)) }

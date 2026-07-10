@@ -444,7 +444,7 @@ fun InvoiceDetailScreen(
                     when (i.status) {
                         "draft", "sent" -> {
                             Button(onClick = { onSign(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Get Signature") }
-                            OutlinedButton(onClick = { onSend(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Invoice + Payment Link") }
+                            OutlinedButton(onClick = { onSend(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Invoice") }
                         }
                         "signed" -> {
                             if (com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self"))
@@ -461,6 +461,22 @@ fun InvoiceDetailScreen(
                         }
                         "partial", "partially_paid" -> {
                             Button(onClick = { onReceipt(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Partial Receipt") }
+                        }
+                    }
+                    // P2.37: ScanPay payment link — available for ANY invoice with a
+                    // balance due, regardless of signature state (David collects after
+                    // approval too). Creates the ScanPay invoice + texts the pay link.
+                    if (i.status != "paid" && i.balance_due > 0 &&
+                        com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self")) {
+                        val spLoading by vm.scanPayLoading.collectAsState()
+                        OutlinedButton(
+                            onClick = { vm.createScanPayLink(i.id, i.balance_due, i.cust_phone) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            enabled = !spLoading
+                        ) {
+                            if (spLoading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else { Icon(Icons.Default.Link, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Payment Link") }
                         }
                     }
                 } }
