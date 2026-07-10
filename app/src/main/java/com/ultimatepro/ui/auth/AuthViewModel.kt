@@ -60,6 +60,16 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // P3.7: re-fetch resolved permissions (+ role) from /me. Called on app foreground
+    // (ON_RESUME) so an owner's permission-grid change reaches a logged-in user without
+    // re-login — "next app foreground at latest". Server enforcement is always live; this
+    // keeps the UI-gating cache current too. Keeps stored values if /me fails (offline).
+    fun refreshPermissions() = viewModelScope.launch {
+        if (!repo.isLoggedIn()) return@launch
+        val fresh = repo.getMyPermissions()
+        if (fresh.isNotEmpty()) _permissions.value = fresh
+    }
+
     fun login(email: String, password: String) = viewModelScope.launch {
         _state.value = AuthState(loading = true)
         when (val r = repo.login(email, password)) {

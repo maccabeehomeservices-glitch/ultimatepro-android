@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.*
@@ -167,6 +170,19 @@ fun App(
         val authVm: AuthViewModel = hiltViewModel()
         val loggedIn by authVm.loggedIn.collectAsState()
         val context = LocalContext.current
+
+        // P3.7: re-fetch resolved permissions whenever the app returns to the
+        // foreground, so an owner's permission-grid change reaches a logged-in tech
+        // without re-login ("next app foreground at latest"). Server enforcement is
+        // already live per-request; this keeps the UI-gating cache current too.
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) authVm.refreshPermissions()
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
         val notifPrefs = remember(context) {
             EntryPoints.get(context.applicationContext, NotifPrefsEntryPoint::class.java)
                 .notificationPreferences()
