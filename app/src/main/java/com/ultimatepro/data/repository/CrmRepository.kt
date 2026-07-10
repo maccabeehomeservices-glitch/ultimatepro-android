@@ -164,6 +164,21 @@ class CrmRepository @Inject constructor(
             is Result.Error -> emptyList()
         }
 
+    // P3.8 job-types curation (Job Types settings screen).
+    suspend fun getTrades()                       = call { api.getTrades() }
+    suspend fun setTrades(trades: List<String>)   = call { api.setTrades(mapOf("trades" to trades)) }
+    suspend fun addJobType(label: String)         = call { api.addJobType(mapOf("label" to label)) }
+    suspend fun deleteJobType(id: String)         = call { api.deleteJobType(id) }
+    // The company's active job types with ids (for the curation screen's manage list).
+    suspend fun getJobTypesFull(): List<Triple<String, String, String>> =
+        when (val r = call { api.getJobTypes() }) {
+            is Result.Success -> r.data.mapNotNull {
+                val id = it["id"] as? String; val k = it["key"] as? String; val l = it["label"] as? String
+                if (id != null && k != null && l != null) Triple(id, k, l) else null
+            }
+            is Result.Error -> emptyList()
+        }
+
     suspend fun uploadCompanyLogo(file: java.io.File): Result<String> {
         return try {
             val requestFile = file.readBytes().toRequestBody("image/*".toMediaTypeOrNull())
@@ -272,14 +287,15 @@ class CrmRepository @Inject constructor(
     // ── Jobs ─────────────────────────────────────────────────────────────
 
     suspend fun getJobs(
-        status: String? = null, techId: String? = null, custId: String? = null,
+        status: String? = null, type: String? = null, techId: String? = null, custId: String? = null,
         from: String? = null, to: String? = null,
         activityFrom: String? = null, activityTo: String? = null,
         priority: String? = null, search: String? = null,
         sort: String? = null, page: Int = 1, includeAllStatuses: Boolean = false,
         partnerView: Boolean = false
-    ) = call { api.getJobs(status, techId, custId, from, to, activityFrom, activityTo,
-        priority, search, sort, page,
+    ) = call { api.getJobs(status = status, type = type, techId = techId, custId = custId,
+        from = from, to = to, activityFrom = activityFrom, activityTo = activityTo,
+        priority = priority, search = search, sort = sort, page = page,
         includeAllStatuses = if (includeAllStatuses) true else null,
         partnerView = if (partnerView) true else null) }
 

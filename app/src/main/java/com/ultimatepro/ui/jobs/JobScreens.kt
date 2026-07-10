@@ -169,6 +169,7 @@ class JobViewModel @Inject constructor(
     }
     fun load(
         statuses: List<String>? = null,
+        types: List<String>? = null,
         techIds: List<String>? = null,
         from: String? = null,
         to: String? = null,
@@ -185,6 +186,7 @@ class JobViewModel @Inject constructor(
             } else {
                 repo.getJobs(
                     status       = statuses?.takeIf { it.isNotEmpty() }?.joinToString(","),
+                    type         = types?.takeIf { it.isNotEmpty() }?.joinToString(","),
                     techId       = techIds?.takeIf { it.isNotEmpty() }?.joinToString(","),
                     from         = from,
                     to           = to,
@@ -790,6 +792,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
     var customTo     by remember { mutableStateOf<String?>(null) }
     var selectedStatuses by remember { mutableStateOf<Set<String>>(emptySet()) }
     var selectedTechIds  by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedTypes    by remember { mutableStateOf<Set<String>>(emptySet()) } // P3.8: job-type filter
     var partnerView      by remember { mutableStateOf(false) }
     var showFilterDialog by remember { mutableStateOf(false) }
     var showCustomDateDialog by remember { mutableStateOf(false) }
@@ -806,7 +809,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
         "custom" to "Custom",
         "all" to "All"
     )
-    val activeFilterCount = selectedStatuses.size + selectedTechIds.size + (if (partnerView) 1 else 0)
+    val activeFilterCount = selectedStatuses.size + selectedTechIds.size + selectedTypes.size + (if (partnerView) 1 else 0)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -817,7 +820,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(Unit) { vm.loadTechs() }
+    LaunchedEffect(Unit) { vm.loadTechs(); vm.loadJobTypes() } // P3.8: job-type filter options
 
     val pullState = rememberPullToRefreshState()
 
@@ -825,6 +828,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
         val (from, to) = dateBoundsFor(dateRange, customFrom, customTo)
         vm.load(
             statuses     = selectedStatuses.toList().takeIf { it.isNotEmpty() },
+            types        = selectedTypes.toList().takeIf { it.isNotEmpty() },
             techIds      = selectedTechIds.toList().takeIf { it.isNotEmpty() },
             activityFrom = from,
             activityTo   = to,
@@ -832,7 +836,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
             sort         = sortFor(dateRange, customTo)
         )
     }
-    LaunchedEffect(dateRange, customFrom, customTo, selectedStatuses, selectedTechIds, partnerView, resumeKey) { doLoad() }
+    LaunchedEffect(dateRange, customFrom, customTo, selectedStatuses, selectedTechIds, selectedTypes, partnerView, resumeKey) { doLoad() }
     if (pullState.isRefreshing) { LaunchedEffect(Unit) { doLoad() } }
     LaunchedEffect(state.loading) { if (!state.loading && pullState.isRefreshing) pullState.endRefresh() }
 
@@ -969,15 +973,17 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
     if (showFilterDialog) {
         StatusTechFilterDialog(
             techs            = state.techs,
+            jobTypes         = state.jobTypes,
             initialStatuses  = selectedStatuses,
             initialTechIds   = selectedTechIds,
+            initialTypes     = selectedTypes,
             initialPartnerView = partnerView,
-            onApply = { ss, st, pv ->
-                selectedStatuses = ss; selectedTechIds = st; partnerView = pv
+            onApply = { ss, st, ty, pv ->
+                selectedStatuses = ss; selectedTechIds = st; selectedTypes = ty; partnerView = pv
                 showFilterDialog = false
             },
             onClear = {
-                selectedStatuses = emptySet(); selectedTechIds = emptySet(); partnerView = false
+                selectedStatuses = emptySet(); selectedTechIds = emptySet(); selectedTypes = emptySet(); partnerView = false
                 showFilterDialog = false
             },
             onDismiss = { showFilterDialog = false }
@@ -1190,15 +1196,18 @@ private fun CustomDateRangeDialog(
 @Composable
 private fun StatusTechFilterDialog(
     techs: List<User>,
+    jobTypes: List<Pair<String, String>>,
     initialStatuses: Set<String>,
     initialTechIds: Set<String>,
+    initialTypes: Set<String>,
     initialPartnerView: Boolean,
-    onApply: (Set<String>, Set<String>, Boolean) -> Unit,
+    onApply: (Set<String>, Set<String>, Set<String>, Boolean) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var ss by remember { mutableStateOf(initialStatuses) }
     var st by remember { mutableStateOf(initialTechIds) }
+    var ty by remember { mutableStateOf(initialTypes) }
     var pv by remember { mutableStateOf(initialPartnerView) }
 
     val statusOptions = listOf(
@@ -1259,9 +1268,22 @@ private fun StatusTechFilterDialog(
                         }
                     }
                 }
+                if (jobTypes.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    SectionLabel("JOB TYPE")
+                    jobTypes.forEach { (key, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { ty = if (ty.contains(key)) ty - key else ty + key },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = ty.contains(key), onCheckedChange = { c -> ty = if (c) ty + key else ty - key })
+                            Text(label)
+                        }
+                    }
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(ss, st, pv) }) { Text("Apply") } },
+        confirmButton = { TextButton(onClick = { onApply(ss, st, ty, pv) }) { Text("Apply") } },
         dismissButton = {
             Row {
                 TextButton(onClick = onClear) { Text("Clear All") }

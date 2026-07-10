@@ -92,6 +92,7 @@ object Route {
     const val REVIEW_PLATFORMS    = "settings/review-platforms"
     const val ONLINE_BOOKING      = "settings/online-booking"
     const val JOB_SOURCES         = "settings/job-sources"
+    const val JOB_TYPES           = "settings/job-types"
     const val MEMBERSHIP_PLANS    = "settings/membership-plans"
     // Inventory
     const val INVENTORY           = "inventory"
@@ -302,6 +303,7 @@ fun App(
                         onReviewPlatforms  = { navController.navigate(Route.REVIEW_PLATFORMS) },
                         onOnlineBooking    = { navController.navigate(Route.ONLINE_BOOKING) },
                         onJobSources       = { navController.navigate(Route.JOB_SOURCES) },
+                        onJobTypes         = { navController.navigate(Route.JOB_TYPES) },
                         onMembershipPlans  = { navController.navigate(Route.MEMBERSHIP_PLANS) },
                         onInventory        = { navController.navigate(Route.INVENTORY) },
                         onTechnicians      = { navController.navigate(Route.ROSTER_TECHS) },
@@ -348,6 +350,9 @@ fun App(
             }
             composable(Route.JOB_SOURCES) {
                 JobSourcesScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Route.JOB_TYPES) {
+                com.ultimatepro.ui.settings.JobTypesScreen(onBack = { navController.popBackStack() })
             }
             composable(Route.MEMBERSHIP_PLANS) {
                 com.ultimatepro.ui.memberships.MembershipPlansScreen(onBack = { navController.popBackStack() })

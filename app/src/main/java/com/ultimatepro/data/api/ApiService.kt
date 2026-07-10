@@ -55,6 +55,18 @@ interface ApiService {
     @GET("company/job-types")
     suspend fun getJobTypes(): Response<List<Map<String, Any?>>>
 
+    @GET("company/trades")
+    suspend fun getTrades(): Response<Map<String, Any?>>
+
+    @PUT("company/trades")
+    suspend fun setTrades(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any?>>
+
+    @POST("company/job-types")
+    suspend fun addJobType(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any?>>
+
+    @DELETE("company/job-types/{id}")
+    suspend fun deleteJobType(@retrofit2.http.Path("id") id: String): Response<Map<String, Any?>>
+
     @PUT("company/joby-rules/{id}")
     suspend fun updateJobyRule(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
@@ -131,6 +143,7 @@ interface ApiService {
     @GET("jobs")
     suspend fun getJobs(
         @Query("status")              status: String?  = null,
+        @Query("type")                type: String?    = null,
         @Query("assigned_to")         techId: String?  = null,
         @Query("customer_id")         custId: String?  = null,
         @Query("from")                from: String?    = null,

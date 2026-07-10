@@ -66,6 +66,7 @@ fun SettingsScreen(
     onReviewPlatforms:  () -> Unit = {},
     onOnlineBooking:    () -> Unit = {},
     onJobSources:          () -> Unit = {},
+    onJobTypes:            () -> Unit = {},
     onMembershipPlans:     () -> Unit = {},
     onInventory:           () -> Unit = {},
     onTechnicians:         () -> Unit = {},
@@ -141,6 +142,8 @@ fun SettingsScreen(
                 if (canUi(role, perms,"job_sources_commissions", "view"))
                     Item("Job Sources",      Icons.Default.Source,        onJobSources,
                         description = "Track where jobs come from — contacts, ads, network")
+                Item("Job Types",        Icons.Default.Build,          onJobTypes,
+                    description = "Pick your trades and the job types shown when creating a job")
                 if (canUi(role, perms,"team_settings", "view"))
                     Item("Review Platforms", Icons.Default.Star,   onReviewPlatforms,
                         description = "Manage review links sent with payment receipts")
