@@ -476,10 +476,12 @@ class CrmRepository @Inject constructor(
     // P2.5: scanpayCharge removed — phantom (no backend payments/scanpay/charge route, no caller).
     suspend fun createScanPayQr(invoiceId: String, amount: Double)  =
         call { api.createScanPayQr(mapOf("invoice_id" to invoiceId, "amount" to amount)) }
-    suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) =
+    suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null,
+                                  customerEmail: String? = null, method: String = "sms") =
         call { api.createScanPayLink(buildMap {
-            put("invoice_id", invoiceId); put("amount", amount)
+            put("invoice_id", invoiceId); put("amount", amount); put("method", method)
             if (customerPhone != null) put("customer_phone", customerPhone)
+            if (customerEmail != null) put("customer_email", customerEmail)
         }) }
     suspend fun getScanPayStatus(invoiceId: String)                 = call { api.getScanPayStatus(invoiceId) }
     suspend fun getPaymentSummary(from: String? = null, to: String? = null) = call { api.getPaymentSummary(from, to) }

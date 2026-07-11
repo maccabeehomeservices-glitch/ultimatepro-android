@@ -137,10 +137,11 @@ class InvoiceViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         }
     }
 
-    fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) {
+    fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null,
+                          customerEmail: String? = null, method: String = "sms") {
         viewModelScope.launch {
             _spLoading.value = true
-            when (val r = repo.createScanPayLink(invoiceId, amount, customerPhone)) {
+            when (val r = repo.createScanPayLink(invoiceId, amount, customerPhone, customerEmail, method)) {
                 is Result.Success -> _spLink.value = r.data
                 is Result.Error   -> _msg.value = r.message
             }
@@ -355,6 +356,7 @@ fun InvoiceDetailScreen(
     // P2.40: inline line-item edit mode + the editable draft (seeded from the invoice on open).
     var editing by remember(id) { mutableStateOf(false) }
     val draft = remember(id) { mutableStateListOf<EditItem>() }
+    var showLinkPicker by remember(id) { mutableStateOf(false) } // P2.41 #4
     // Picker is activity-scoped; clear stale picks from a previous caller on mount.
     LaunchedEffect(Unit) { pickerVm?.clearPicked() }
     LaunchedEffect(id) { vm.loadInv(id) }
@@ -393,6 +395,18 @@ fun InvoiceDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showLinkPicker) {
+        val i = inv
+        if (i != null) {
+            val spLoading by vm.scanPayLoading.collectAsState()
+            SendLinkPickerDialog(
+                amount = i.balance_due, defaultEmail = i.cust_email, defaultPhone = i.cust_phone, loading = spLoading,
+                onDismiss = { showLinkPicker = false },
+                onSend = { method, email, phone -> vm.createScanPayLink(i.id, i.balance_due, phone, email, method); showLinkPicker = false }
+            )
         }
     }
 
@@ -513,7 +527,7 @@ fun InvoiceDetailScreen(
                         com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self")) {
                         val spLoading by vm.scanPayLoading.collectAsState()
                         OutlinedButton(
-                            onClick = { vm.createScanPayLink(i.id, i.balance_due, i.cust_phone) },
+                            onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
                             enabled = !spLoading
@@ -655,6 +669,43 @@ private fun EditableInvoiceItemsCard(
     }
 }
 
+// P2.41 #4: pre-send picker for "Send Payment Link" (recipient + channel), so it no longer
+// fires an SMS immediately. Mirrors the send-invoice picker; single recipient per channel
+// (the ScanPay-link backend takes one phone + one email).
+@Composable
+private fun SendLinkPickerDialog(
+    amount: Double, defaultEmail: String?, defaultPhone: String?, loading: Boolean,
+    onDismiss: () -> Unit, onSend: (method: String, email: String?, phone: String?) -> Unit
+) {
+    var sendEmail by remember { mutableStateOf(!defaultEmail.isNullOrBlank()) }
+    var sendSms   by remember { mutableStateOf(!defaultPhone.isNullOrBlank()) }
+    var email by remember { mutableStateOf(defaultEmail ?: "") }
+    var phone by remember { mutableStateOf(defaultPhone ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send Payment Link") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Send a secure payment link for ${formatMoney(amount)}.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(sendEmail, { sendEmail = it }); Text("Email") }
+                if (sendEmail) OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(sendSms, { sendSms = it }); Text("SMS") }
+                if (sendSms) OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !loading && (sendEmail || sendSms) && (!sendEmail || email.isNotBlank()) && (!sendSms || phone.isNotBlank()),
+                onClick = {
+                    val method = if (sendEmail && sendSms) "both" else if (sendEmail) "email" else "sms"
+                    onSend(method, if (sendEmail) email.trim() else null, if (sendSms) phone.trim() else null)
+                }
+            ) { Text(if (loading) "Sending…" else "Send Link") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
 @Composable
 private fun InvLineItemsCard(label: String, items: List<LineItem>, isDiscount: Boolean = false) {
     CRMCard {
@@ -773,6 +824,7 @@ fun PaymentScreen(
     var notes       by remember { mutableStateOf("") }
     var paying      by remember { mutableStateOf(false) }
     var showOverpay by remember { mutableStateOf(false) }   // P2.27 #3 overpayment confirm
+    var showLinkPicker by remember { mutableStateOf(false) } // P2.41 #4
     var showQr      by remember { mutableStateOf(false) }
     var amountText  by remember { mutableStateOf("") }
 
@@ -867,7 +919,7 @@ fun PaymentScreen(
                     else { Icon(Icons.Default.QrCode, null); Spacer(Modifier.width(8.dp)); Text("Generate QR — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
                 }
                 "scanpay_link" -> Button(
-                    onClick = { vm.createScanPayLink(invoiceId, chargeAmount, inv?.cust_phone) },
+                    onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !spLoading && chargeAmount > 0,
@@ -904,6 +956,15 @@ fun PaymentScreen(
                         }) { Text("Record anyway", fontWeight = FontWeight.SemiBold) }
                     },
                     dismissButton = { TextButton(onClick = { showOverpay = false }) { Text("Cancel") } }
+                )
+            }
+
+            // P2.41 #4: pre-send picker for the ScanPay payment link.
+            if (showLinkPicker) {
+                SendLinkPickerDialog(
+                    amount = chargeAmount, defaultEmail = inv?.cust_email, defaultPhone = inv?.cust_phone, loading = spLoading,
+                    onDismiss = { showLinkPicker = false },
+                    onSend = { m, email, phone -> vm.createScanPayLink(invoiceId, chargeAmount, phone, email, m); showLinkPicker = false }
                 )
             }
 
