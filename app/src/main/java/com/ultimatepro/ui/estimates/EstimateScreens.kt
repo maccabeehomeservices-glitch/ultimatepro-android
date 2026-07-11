@@ -29,6 +29,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -353,6 +356,11 @@ class EstimateViewModel @Inject constructor(private val repo: CrmRepository) : V
     private val _customer = MutableStateFlow<Customer?>(null);             val customer    = _customer.asStateFlow()
     private val _l        = MutableStateFlow(true);                        val loading     = _l.asStateFlow()
     private val _msg      = MutableStateFlow<String?>(null);               val message     = _msg.asStateFlow()
+    // P2.38: estimate-deposit ScanPay QR/link + status poll.
+    private val _depQr     = MutableStateFlow<ScanPayQrResponse?>(null);     val depositQr     = _depQr.asStateFlow()
+    private val _depLink   = MutableStateFlow<ScanPayLinkResponse?>(null);   val depositLink   = _depLink.asStateFlow()
+    private val _depStatus = MutableStateFlow<DepositStatusResponse?>(null); val depositStatus = _depStatus.asStateFlow()
+    private val _depLoading = MutableStateFlow(false);                       val depositLoading = _depLoading.asStateFlow()
     init { load() }
     fun load() { viewModelScope.launch { _l.value = true; when (val r = repo.getEstimates()) { is Result.Success -> _ests.value = r.data.estimates; else -> {} }; _l.value = false } }
     fun loadEst(id: String) {
@@ -472,6 +480,36 @@ class EstimateViewModel @Inject constructor(private val repo: CrmRepository) : V
             }
         }
     }
+    // P2.38: estimate deposit via ScanPay.
+    fun createDepositScanPayQr(estimateId: String) {
+        viewModelScope.launch {
+            _depLoading.value = true
+            when (val r = repo.createDepositScanPayQr(estimateId)) {
+                is Result.Success -> _depQr.value = r.data
+                is Result.Error   -> _msg.value = r.message
+            }
+            _depLoading.value = false
+        }
+    }
+    fun createDepositScanPayLink(estimateId: String, method: String = "sms") {
+        viewModelScope.launch {
+            _depLoading.value = true
+            when (val r = repo.createDepositScanPayLink(estimateId, method)) {
+                is Result.Success -> _depLink.value = r.data
+                is Result.Error   -> _msg.value = r.message
+            }
+            _depLoading.value = false
+        }
+    }
+    fun pollDepositStatus(estimateId: String) {
+        viewModelScope.launch {
+            when (val r = repo.getDepositStatus(estimateId)) {
+                is Result.Success -> _depStatus.value = r.data
+                is Result.Error   -> {}
+            }
+        }
+    }
+    fun clearDepositScanPay() { _depQr.value = null; _depLink.value = null; _depStatus.value = null }
     fun selectTierAndSign(estimateId: String, tierId: String, onDone: () -> Unit) {
         viewModelScope.launch {
             when (val r = repo.selectEstimateTier(estimateId, tierId)) {
@@ -1757,6 +1795,9 @@ fun DepositCollectionScreen(
 ) {
     val est by vm.selected.collectAsState()
     val msg by vm.message.collectAsState()
+    val depQr by vm.depositQr.collectAsState()
+    val depLink by vm.depositLink.collectAsState()
+    val depLoading by vm.depositLoading.collectAsState()
     val snack = remember { SnackbarHostState() }
 
     var method by remember { mutableStateOf("cash") }
@@ -1869,24 +1910,46 @@ fun DepositCollectionScreen(
                     }
                     // Buttons
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                val amt = amountText.toDoubleOrNull() ?: return@Button
-                                if (amt <= 0) return@Button
-                                collecting = true
-                                vm.collectDeposit(estimateId, amt, method) { remaining ->
-                                    collecting = false
-                                    collectedAmount = amt
-                                    remainingBalance = remaining
-                                    success = true
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            enabled = amountText.toDoubleOrNull() != null && !collecting
-                        ) {
-                            if (collecting) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                            else { Icon(Icons.Default.Payment, null, Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("Collect Deposit", fontWeight = FontWeight.Bold) }
+                        if (method == "credit_card") {
+                            // P2.38: real ScanPay — QR on-screen (customer present) + send a payment link.
+                            // The webhook marks the deposit collected; we poll deposit-status in the dialogs.
+                            Button(
+                                onClick = { vm.createDepositScanPayQr(estimateId) },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = !depLoading
+                            ) {
+                                if (depLoading) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
+                                else { Icon(Icons.Default.QrCode, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Show QR to Customer", fontWeight = FontWeight.Bold) }
+                            }
+                            OutlinedButton(
+                                onClick = { vm.createDepositScanPayLink(estimateId, "both") },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = !depLoading
+                            ) {
+                                Icon(Icons.Default.Link, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send Payment Link")
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    val amt = amountText.toDoubleOrNull() ?: return@Button
+                                    if (amt <= 0) return@Button
+                                    collecting = true
+                                    vm.collectDeposit(estimateId, amt, method) { remaining ->
+                                        collecting = false
+                                        collectedAmount = amt
+                                        remainingBalance = remaining
+                                        success = true
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = amountText.toDoubleOrNull() != null && !collecting
+                            ) {
+                                if (collecting) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
+                                else { Icon(Icons.Default.Payment, null, Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("Collect Deposit", fontWeight = FontWeight.Bold) }
+                            }
                         }
                         TextButton(onClick = { onDone(e.job_id) }, modifier = Modifier.fillMaxWidth()) {
                             Text("Skip for Now", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1895,6 +1958,69 @@ fun DepositCollectionScreen(
                     Spacer(Modifier.height(24.dp))
                 }
             } ?: LoadingView()
+        }
+    }
+
+    // P2.38: ScanPay deposit dialogs (poll deposit-status → success when paid).
+    val depAmt = est?.let { if (it.deposit_type == "percentage") it.total * it.deposit_amount / 100.0 else it.deposit_amount } ?: 0.0
+    val markPaid = { collectedAmount = depAmt; remainingBalance = (est?.total ?: depAmt) - depAmt; success = true; vm.clearDepositScanPay() }
+    depQr?.let { qr ->
+        DepositScanPayDialog("Scan to Pay Deposit", qr.qr_data_url, qr.payment_url, depAmt, estimateId, vm,
+            onPaid = markPaid, onDismiss = { vm.clearDepositScanPay() })
+    }
+    depLink?.let { lk ->
+        DepositScanPayDialog("Deposit Link Sent", null, lk.payment_url, depAmt, estimateId, vm,
+            smsSent = lk.sms_sent, phoneUsed = lk.phone_used, onPaid = markPaid, onDismiss = { vm.clearDepositScanPay() })
+    }
+}
+
+// P2.38: one dialog serves both the on-screen QR (qrDataUrl set) and the sent-link
+// (qrDataUrl null) cases. Polls the estimate deposit-status every 3s; onPaid fires when
+// the webhook has flipped deposit_collected true.
+@Composable
+private fun DepositScanPayDialog(
+    title: String,
+    qrDataUrl: String?,
+    paymentUrl: String,
+    amount: Double,
+    estimateId: String,
+    vm: EstimateViewModel,
+    smsSent: Boolean = false,
+    phoneUsed: String? = null,
+    onPaid: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val status by vm.depositStatus.collectAsState()
+    val clipboard = LocalClipboardManager.current
+    val qrBitmap = remember(qrDataUrl) {
+        qrDataUrl?.let { runCatching {
+            val bytes = Base64.decode(it.substringAfter("base64,"), Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull() }
+    }
+    LaunchedEffect(estimateId) { while (true) { delay(3000); vm.pollDepositStatus(estimateId) } }
+    LaunchedEffect(status) { if (status?.deposit_collected == true) onPaid() }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(formatMoney(amount), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = AppColors.Green)
+                if (qrBitmap != null) {
+                    Image(bitmap = qrBitmap.asImageBitmap(), contentDescription = "Deposit QR", modifier = Modifier.size(240.dp).clip(RoundedCornerShape(8.dp)))
+                }
+                if (smsSent && phoneUsed != null) {
+                    Text("Sent to $phoneUsed", style = MaterialTheme.typography.bodySmall, color = AppColors.Green)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text("Waiting for payment…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedButton(onClick = { clipboard.setText(AnnotatedString(paymentUrl)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+                    Icon(Icons.Default.ContentCopy, null, Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)); Text("Copy Link")
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+            }
         }
     }
 }

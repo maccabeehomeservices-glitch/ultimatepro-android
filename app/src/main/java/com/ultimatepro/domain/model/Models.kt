@@ -849,6 +849,14 @@ data class ScanPayStatusResponse(
     val balance: Double? = null
 )
 
+// P2.38: poll target for the estimate-deposit ScanPay QR/link sheet.
+data class DepositStatusResponse(
+    val deposit_required:     Boolean = false,
+    val deposit_collected:    Boolean = false,
+    val deposit_collected_at: String? = null,
+    val amount:               Double  = 0.0
+)
+
 // ─── Contractor Network ───────────────────────────────────────────────────
 
 data class ContractorAgreement(

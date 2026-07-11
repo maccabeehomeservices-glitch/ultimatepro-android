@@ -439,6 +439,11 @@ class CrmRepository @Inject constructor(
         call { api.updateDepositSettings(id, mapOf("deposit_required" to depositRequired, "deposit_amount" to depositAmount, "deposit_type" to depositType)) }
     suspend fun collectDeposit(id: String, amountCollected: Double, paymentMethod: String) =
         call { api.collectDeposit(id, mapOf("amount_collected" to amountCollected, "payment_method" to paymentMethod)) }
+    // P2.38: estimate deposit via ScanPay.
+    suspend fun createDepositScanPayQr(id: String)                  = call { api.createDepositScanPayQr(id) }
+    suspend fun createDepositScanPayLink(id: String, method: String = "sms") =
+        call { api.createDepositScanPayLink(id, mapOf("method" to method)) }
+    suspend fun getDepositStatus(id: String)                        = call { api.getDepositStatus(id) }
 
     // ── Invoices ─────────────────────────────────────────────────────────
 

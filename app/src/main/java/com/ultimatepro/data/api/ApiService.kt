@@ -333,6 +333,16 @@ interface ApiService {
     @POST("estimates/{id}/collect-deposit")
     suspend fun collectDeposit(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
+    // P2.38: estimate DEPOSIT via ScanPay (QR on-screen + payment link + status poll).
+    @POST("estimates/{id}/deposit-scanpay-qr")
+    suspend fun createDepositScanPayQr(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?> = emptyMap()): Response<ScanPayQrResponse>
+
+    @POST("estimates/{id}/deposit-scanpay-link")
+    suspend fun createDepositScanPayLink(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ScanPayLinkResponse>
+
+    @GET("estimates/{id}/deposit-status")
+    suspend fun getDepositStatus(@Path("id") id: String): Response<DepositStatusResponse>
+
     @GET("estimates/{id}/tiers")
     suspend fun getEstimateTiers(@Path("id") id: String): Response<List<EstimateTier>>
 
