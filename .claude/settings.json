@@ -17,6 +17,7 @@
       "Bash(git pull origin staging:*)",
       "Bash(git push origin staging:*)",
       "Bash(git push -u origin staging:*)",
+      "Bash(git push origin main:*)",
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
@@ -31,7 +32,6 @@
       "Bash(curl -s https://ultimatepro-web-staging.up.railway.app:*)"
     ],
     "deny": [
-      "Bash(git push origin main:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)"
     ]
