@@ -384,15 +384,10 @@ fun InvoiceDetailScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("Charge on site", fontWeight = FontWeight.SemiBold)
                     }
-                    OutlinedButton(
-                        onClick = { showPaymentOptions = false; onSend(i.id) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Link, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Send payment link")
-                    }
+                    // P2.41b duplicate-control removal: the sheet's "Send payment link" actually
+                    // called onSend (send the WHOLE invoice), duplicating the body "Send Invoice"
+                    // and bypassing the P2.41 pre-send picker. The canonical picker-backed
+                    // "Send Payment Link" is the action-card button (createScanPayLink). Removed.
                 }
             }
         }
