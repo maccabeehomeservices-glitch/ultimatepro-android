@@ -195,8 +195,9 @@ class InvoiceViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         viewModelScope.launch {
             when (val r = repo.updateInvoice(invoiceId, mapOf("line_items" to lineItems))) {
                 is Result.Success -> {
-                    _sel.value = r.data
-                    if (r.data.requires_resign) { _msg.value = "Items changed — the signature was cleared. Please re-sign."; onResign() }
+                    val resign = r.data.requires_resign  // read off the PUT body before the refresh
+                    loadInv(invoiceId)                    // re-fetch so the JOINed customer name + totals are current
+                    if (resign) { _msg.value = "Items changed — the signature was cleared. Please re-sign."; onResign() }
                     else _msg.value = "Invoice updated"
                     onSuccess()
                 }
