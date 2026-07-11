@@ -137,10 +137,11 @@ class InvoiceViewModel @Inject constructor(private val repo: CrmRepository) : Vi
         }
     }
 
-    fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) {
+    fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null,
+                          customerEmail: String? = null, method: String = "sms") {
         viewModelScope.launch {
             _spLoading.value = true
-            when (val r = repo.createScanPayLink(invoiceId, amount, customerPhone)) {
+            when (val r = repo.createScanPayLink(invoiceId, amount, customerPhone, customerEmail, method)) {
                 is Result.Success -> _spLink.value = r.data
                 is Result.Error   -> _msg.value = r.message
             }
@@ -183,6 +184,25 @@ class InvoiceViewModel @Inject constructor(private val repo: CrmRepository) : Vi
             when (val r = repo.updateInvoice(invoiceId, mapOf("line_items" to existingItems + newItems))) {
                 is Result.Success -> { _sel.value = r.data; _msg.value = "Item added" }
                 is Result.Error   -> _msg.value = r.message
+            }
+        }
+    }
+
+    // P2.40: persist inline line-item edits (remove / price edit). The composable builds the
+    // full line_items array; a 400 (money guard: new total < money already collected) surfaces
+    // the server's "already collected — refund/void first" message; a 200 whose body carries
+    // requires_resign means editing a SIGNED invoice cleared the signature -> onResign re-prompts.
+    fun saveLineItems(invoiceId: String, lineItems: List<Map<String, Any?>>, onResign: () -> Unit = {}, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val r = repo.updateInvoice(invoiceId, mapOf("line_items" to lineItems))) {
+                is Result.Success -> {
+                    val resign = r.data.requires_resign  // read off the PUT body before the refresh
+                    loadInv(invoiceId)                    // re-fetch so the JOINed customer name + totals are current
+                    if (resign) { _msg.value = "Items changed — the signature was cleared. Please re-sign."; onResign() }
+                    else _msg.value = "Invoice updated"
+                    onSuccess()
+                }
+                is Result.Error -> _msg.value = r.message   // 400 money guard: stays in edit mode
             }
         }
     }
@@ -333,6 +353,10 @@ fun InvoiceDetailScreen(
     val role by authVm.role.collectAsState()
     val snack  = remember { SnackbarHostState() }
     var showPaymentOptions by remember { mutableStateOf(false) }
+    // P2.40: inline line-item edit mode + the editable draft (seeded from the invoice on open).
+    var editing by remember(id) { mutableStateOf(false) }
+    val draft = remember(id) { mutableStateListOf<EditItem>() }
+    var showLinkPicker by remember(id) { mutableStateOf(false) } // P2.41 #4
     // Picker is activity-scoped; clear stale picks from a previous caller on mount.
     LaunchedEffect(Unit) { pickerVm?.clearPicked() }
     LaunchedEffect(id) { vm.loadInv(id) }
@@ -360,17 +384,24 @@ fun InvoiceDetailScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("Charge on site", fontWeight = FontWeight.SemiBold)
                     }
-                    OutlinedButton(
-                        onClick = { showPaymentOptions = false; onSend(i.id) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Link, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Send payment link")
-                    }
+                    // P2.41b duplicate-control removal: the sheet's "Send payment link" actually
+                    // called onSend (send the WHOLE invoice), duplicating the body "Send Invoice"
+                    // and bypassing the P2.41 pre-send picker. The canonical picker-backed
+                    // "Send Payment Link" is the action-card button (createScanPayLink). Removed.
                 }
             }
+        }
+    }
+
+    if (showLinkPicker) {
+        val i = inv
+        if (i != null) {
+            val spLoading by vm.scanPayLoading.collectAsState()
+            SendLinkPickerDialog(
+                amount = i.balance_due, defaultEmail = i.cust_email, defaultPhone = i.cust_phone, loading = spLoading,
+                onDismiss = { showLinkPicker = false },
+                onSend = { method, email, phone -> vm.createScanPayLink(i.id, i.balance_due, phone, email, method); showLinkPicker = false }
+            )
         }
     }
 
@@ -394,20 +425,41 @@ fun InvoiceDetailScreen(
                 val mats = i.line_items.filter { it.item_type == "material" }
                 val discs = i.line_items.filter { it.item_type == "discount" }
                 val others = i.line_items.filter { it.item_type !in listOf("service","labor","material","discount") }
-                if (svcs.isNotEmpty()) item { InvLineItemsCard("LABOR", svcs) }
-                if (mats.isNotEmpty()) item { InvLineItemsCard("MATERIALS", mats) }
-                if (discs.isNotEmpty()) item { InvLineItemsCard("DISCOUNTS", discs, isDiscount = true) }
-                if (others.isNotEmpty()) item { InvLineItemsCard("ITEMS", others) }
-                // Add Item button (always visible)
-                item {
-                    OutlinedButton(
-                        onClick = onAddItem,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Add Item")
+                if (editing) {
+                    // P2.40: inline editor — per-row remove + name/qty/price edit + add, one flat list.
+                    item {
+                        EditableInvoiceItemsCard(
+                            draft = draft,
+                            amountPaid = i.amount_paid,
+                            onAdd = { draft.add(EditItem("", "1", "0.00", null, "service", false, 0.0, null, null, false)) },
+                            onRemove = { idx -> if (idx in draft.indices) draft.removeAt(idx) },
+                            onChange = { idx, item -> if (idx in draft.indices) draft[idx] = item },
+                            onCancel = { editing = false; draft.clear() },
+                            onSave = {
+                                val payload = draft.filter { it.name.isNotBlank() }.map { it.toApiMap() }
+                                vm.saveLineItems(i.id, payload, onResign = { onSign(i.id) }, onSuccess = { editing = false; draft.clear() })
+                            }
+                        )
+                    }
+                } else {
+                    if (svcs.isNotEmpty()) item { InvLineItemsCard("LABOR", svcs) }
+                    if (mats.isNotEmpty()) item { InvLineItemsCard("MATERIALS", mats) }
+                    if (discs.isNotEmpty()) item { InvLineItemsCard("DISCOUNTS", discs, isDiscount = true) }
+                    if (others.isNotEmpty()) item { InvLineItemsCard("ITEMS", others) }
+                    // Edit items (P2.40) + Add Item
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (i.status != "paid" && i.status != "void") {
+                                OutlinedButton(
+                                    onClick = { draft.clear(); draft.addAll(i.line_items.map { EditItem.from(it) }); editing = true },
+                                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)
+                                ) { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Edit items") }
+                            }
+                            OutlinedButton(
+                                onClick = onAddItem,
+                                modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)
+                            ) { Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Add Item") }
+                        }
                     }
                 }
                 // Totals
@@ -470,7 +522,7 @@ fun InvoiceDetailScreen(
                         com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self")) {
                         val spLoading by vm.scanPayLoading.collectAsState()
                         OutlinedButton(
-                            onClick = { vm.createScanPayLink(i.id, i.balance_due, i.cust_phone) },
+                            onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
                             enabled = !spLoading
@@ -536,6 +588,117 @@ fun InvoiceDetailScreen(
             }
         } ?: LoadingView()
     }
+}
+
+// ─── P2.40: inline invoice line-item editor ────────────────────────────────
+// A lightweight editable row model (qty/price held as text for smooth typing; parsed for
+// the total + the API). Mirrors the estimate builder's inline edit, kept local to invoices.
+private data class EditItem(
+    val name: String, val qtyText: String, val priceText: String,
+    val description: String?, val item_type: String, val taxable: Boolean,
+    val tax_rate: Double, val image_url: String?, val pricebook_id: String?, val price_overridden: Boolean
+) {
+    val qty get() = qtyText.toDoubleOrNull() ?: 1.0
+    val price get() = priceText.toDoubleOrNull() ?: 0.0
+    val lineTotal get() = qty * price
+    fun toApiMap(): Map<String, Any?> = mapOf(
+        "name" to name, "description" to description, "quantity" to qty, "unit_price" to price,
+        "item_type" to item_type, "taxable" to taxable, "tax_rate" to tax_rate,
+        "image_url" to image_url, "pricebook_id" to pricebook_id,
+        "price_overridden" to price_overridden, "total" to lineTotal)
+    companion object {
+        fun from(li: LineItem): EditItem {
+            val q = if (li.quantity == li.quantity.toLong().toDouble()) li.quantity.toLong().toString() else li.quantity.toString()
+            return EditItem(li.name, q, "%.2f".format(li.unit_price), li.description, li.item_type,
+                li.taxable, li.tax_rate, li.image_url, li.pricebook_id, li.price_overridden)
+        }
+    }
+}
+
+@Composable
+private fun EditableInvoiceItemsCard(
+    draft: List<EditItem>, amountPaid: Double,
+    onAdd: () -> Unit, onRemove: (Int) -> Unit, onChange: (Int, EditItem) -> Unit,
+    onCancel: () -> Unit, onSave: () -> Unit
+) {
+    CRMCard {
+        SectionLabel("LINE ITEMS")
+        draft.forEachIndexed { idx, it ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    OutlinedTextField(it.name, { v -> onChange(idx, it.copy(name = v)) },
+                        label = { Text("Item") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp))
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(it.qtyText, { v -> onChange(idx, it.copy(qtyText = v)) },
+                            label = { Text("Qty") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(84.dp), shape = RoundedCornerShape(8.dp))
+                        OutlinedTextField(it.priceText, { v -> onChange(idx, it.copy(priceText = v, price_overridden = true)) },
+                            label = { Text("Price") }, prefix = { Text("$") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.width(120.dp), shape = RoundedCornerShape(8.dp))
+                        Spacer(Modifier.weight(1f))
+                        Text(formatMoney(it.lineTotal), fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                IconButton(onClick = { onRemove(idx) }) { Icon(Icons.Default.Close, "Remove", tint = AppColors.Red) }
+            }
+            HorizontalDivider()
+        }
+        TextButton(onClick = onAdd, modifier = Modifier.padding(top = 4.dp)) {
+            Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add item")
+        }
+        val editTotal = draft.sumOf { if (it.item_type == "discount") -it.lineTotal else it.lineTotal }
+        HorizontalDivider(Modifier.padding(vertical = 6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Total", fontWeight = FontWeight.Bold); Text(formatMoney(editTotal), fontWeight = FontWeight.Bold, color = AppColors.Blue)
+        }
+        if (amountPaid > 0) {
+            Text("${formatMoney(amountPaid)} already collected — the new total can't go below that (refund or void first).",
+                style = MaterialTheme.typography.labelSmall, color = AppColors.Orange, modifier = Modifier.padding(top = 4.dp))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("Cancel") }
+            Button(onClick = onSave, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("Save changes") }
+        }
+    }
+}
+
+// P2.41 #4: pre-send picker for "Send Payment Link" (recipient + channel), so it no longer
+// fires an SMS immediately. Mirrors the send-invoice picker; single recipient per channel
+// (the ScanPay-link backend takes one phone + one email).
+@Composable
+private fun SendLinkPickerDialog(
+    amount: Double, defaultEmail: String?, defaultPhone: String?, loading: Boolean,
+    onDismiss: () -> Unit, onSend: (method: String, email: String?, phone: String?) -> Unit
+) {
+    var sendEmail by remember { mutableStateOf(!defaultEmail.isNullOrBlank()) }
+    var sendSms   by remember { mutableStateOf(!defaultPhone.isNullOrBlank()) }
+    var email by remember { mutableStateOf(defaultEmail ?: "") }
+    var phone by remember { mutableStateOf(defaultPhone ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send Payment Link") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Send a secure payment link for ${formatMoney(amount)}.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(sendEmail, { sendEmail = it }); Text("Email") }
+                if (sendEmail) OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(sendSms, { sendSms = it }); Text("SMS") }
+                if (sendSms) OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !loading && (sendEmail || sendSms) && (!sendEmail || email.isNotBlank()) && (!sendSms || phone.isNotBlank()),
+                onClick = {
+                    val method = if (sendEmail && sendSms) "both" else if (sendEmail) "email" else "sms"
+                    onSend(method, if (sendEmail) email.trim() else null, if (sendSms) phone.trim() else null)
+                }
+            ) { Text(if (loading) "Sending…" else "Send Link") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -656,6 +819,7 @@ fun PaymentScreen(
     var notes       by remember { mutableStateOf("") }
     var paying      by remember { mutableStateOf(false) }
     var showOverpay by remember { mutableStateOf(false) }   // P2.27 #3 overpayment confirm
+    var showLinkPicker by remember { mutableStateOf(false) } // P2.41 #4
     var showQr      by remember { mutableStateOf(false) }
     var amountText  by remember { mutableStateOf("") }
 
@@ -750,7 +914,7 @@ fun PaymentScreen(
                     else { Icon(Icons.Default.QrCode, null); Spacer(Modifier.width(8.dp)); Text("Generate QR — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
                 }
                 "scanpay_link" -> Button(
-                    onClick = { vm.createScanPayLink(invoiceId, chargeAmount, inv?.cust_phone) },
+                    onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !spLoading && chargeAmount > 0,
@@ -787,6 +951,15 @@ fun PaymentScreen(
                         }) { Text("Record anyway", fontWeight = FontWeight.SemiBold) }
                     },
                     dismissButton = { TextButton(onClick = { showOverpay = false }) { Text("Cancel") } }
+                )
+            }
+
+            // P2.41 #4: pre-send picker for the ScanPay payment link.
+            if (showLinkPicker) {
+                SendLinkPickerDialog(
+                    amount = chargeAmount, defaultEmail = inv?.cust_email, defaultPhone = inv?.cust_phone, loading = spLoading,
+                    onDismiss = { showLinkPicker = false },
+                    onSend = { m, email, phone -> vm.createScanPayLink(invoiceId, chargeAmount, phone, email, m); showLinkPicker = false }
                 )
             }
 

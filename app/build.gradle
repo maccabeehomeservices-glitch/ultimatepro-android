@@ -16,8 +16,8 @@ android {
         applicationId "com.ultimatepro"
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.3.0"
         manifestPlaceholders = [MAPS_API_KEY: "AIzaSyDtSGWBuiTFR5BbomG8ZFNYeiwUszkJiNQ"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary true }

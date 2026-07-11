@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.*
@@ -89,6 +92,7 @@ object Route {
     const val REVIEW_PLATFORMS    = "settings/review-platforms"
     const val ONLINE_BOOKING      = "settings/online-booking"
     const val JOB_SOURCES         = "settings/job-sources"
+    const val JOB_TYPES           = "settings/job-types"
     const val MEMBERSHIP_PLANS    = "settings/membership-plans"
     // Inventory
     const val INVENTORY           = "inventory"
@@ -167,6 +171,19 @@ fun App(
         val authVm: AuthViewModel = hiltViewModel()
         val loggedIn by authVm.loggedIn.collectAsState()
         val context = LocalContext.current
+
+        // P3.7: re-fetch resolved permissions whenever the app returns to the
+        // foreground, so an owner's permission-grid change reaches a logged-in tech
+        // without re-login ("next app foreground at latest"). Server enforcement is
+        // already live per-request; this keeps the UI-gating cache current too.
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) authVm.refreshPermissions()
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
         val notifPrefs = remember(context) {
             EntryPoints.get(context.applicationContext, NotifPrefsEntryPoint::class.java)
                 .notificationPreferences()
@@ -286,6 +303,7 @@ fun App(
                         onReviewPlatforms  = { navController.navigate(Route.REVIEW_PLATFORMS) },
                         onOnlineBooking    = { navController.navigate(Route.ONLINE_BOOKING) },
                         onJobSources       = { navController.navigate(Route.JOB_SOURCES) },
+                        onJobTypes         = { navController.navigate(Route.JOB_TYPES) },
                         onMembershipPlans  = { navController.navigate(Route.MEMBERSHIP_PLANS) },
                         onInventory        = { navController.navigate(Route.INVENTORY) },
                         onTechnicians      = { navController.navigate(Route.ROSTER_TECHS) },
@@ -332,6 +350,9 @@ fun App(
             }
             composable(Route.JOB_SOURCES) {
                 JobSourcesScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Route.JOB_TYPES) {
+                com.ultimatepro.ui.settings.JobTypesScreen(onBack = { navController.popBackStack() })
             }
             composable(Route.MEMBERSHIP_PLANS) {
                 com.ultimatepro.ui.memberships.MembershipPlansScreen(onBack = { navController.popBackStack() })

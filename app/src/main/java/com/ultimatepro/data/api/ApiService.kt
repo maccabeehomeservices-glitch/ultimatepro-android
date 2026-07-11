@@ -51,6 +51,22 @@ interface ApiService {
     @GET("company/joby-rules")
     suspend fun getJobyRules(): Response<List<Map<String, Any>>>
 
+    // P3.8: the company's editable job-type set (new-job chips read this).
+    @GET("company/job-types")
+    suspend fun getJobTypes(): Response<List<Map<String, Any?>>>
+
+    @GET("company/trades")
+    suspend fun getTrades(): Response<Map<String, Any?>>
+
+    @PUT("company/trades")
+    suspend fun setTrades(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any?>>
+
+    @POST("company/job-types")
+    suspend fun addJobType(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any?>>
+
+    @DELETE("company/job-types/{id}")
+    suspend fun deleteJobType(@retrofit2.http.Path("id") id: String): Response<Map<String, Any?>>
+
     @PUT("company/joby-rules/{id}")
     suspend fun updateJobyRule(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
@@ -127,6 +143,7 @@ interface ApiService {
     @GET("jobs")
     suspend fun getJobs(
         @Query("status")              status: String?  = null,
+        @Query("type")                type: String?    = null,
         @Query("assigned_to")         techId: String?  = null,
         @Query("customer_id")         custId: String?  = null,
         @Query("from")                from: String?    = null,
@@ -315,6 +332,16 @@ interface ApiService {
 
     @POST("estimates/{id}/collect-deposit")
     suspend fun collectDeposit(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
+
+    // P2.38: estimate DEPOSIT via ScanPay (QR on-screen + payment link + status poll).
+    @POST("estimates/{id}/deposit-scanpay-qr")
+    suspend fun createDepositScanPayQr(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?> = emptyMap()): Response<ScanPayQrResponse>
+
+    @POST("estimates/{id}/deposit-scanpay-link")
+    suspend fun createDepositScanPayLink(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ScanPayLinkResponse>
+
+    @GET("estimates/{id}/deposit-status")
+    suspend fun getDepositStatus(@Path("id") id: String): Response<DepositStatusResponse>
 
     @GET("estimates/{id}/tiers")
     suspend fun getEstimateTiers(@Path("id") id: String): Response<List<EstimateTier>>

@@ -154,6 +154,31 @@ class CrmRepository @Inject constructor(
     suspend fun getCompany()                             = call { api.getCompany() }
     suspend fun updateCompany(data: Map<String, Any?>)  = call { api.updateCompany(data) }
 
+    // P3.8: the company's active job types as (key, label) pairs. Empty on error.
+    suspend fun getJobTypes(): List<Pair<String, String>> =
+        when (val r = call { api.getJobTypes() }) {
+            is Result.Success -> r.data.mapNotNull {
+                val k = it["key"] as? String; val l = it["label"] as? String
+                if (k != null && l != null) k to l else null
+            }
+            is Result.Error -> emptyList()
+        }
+
+    // P3.8 job-types curation (Job Types settings screen).
+    suspend fun getTrades()                       = call { api.getTrades() }
+    suspend fun setTrades(trades: List<String>)   = call { api.setTrades(mapOf("trades" to trades)) }
+    suspend fun addJobType(label: String)         = call { api.addJobType(mapOf("label" to label)) }
+    suspend fun deleteJobType(id: String)         = call { api.deleteJobType(id) }
+    // The company's active job types with ids (for the curation screen's manage list).
+    suspend fun getJobTypesFull(): List<Triple<String, String, String>> =
+        when (val r = call { api.getJobTypes() }) {
+            is Result.Success -> r.data.mapNotNull {
+                val id = it["id"] as? String; val k = it["key"] as? String; val l = it["label"] as? String
+                if (id != null && k != null && l != null) Triple(id, k, l) else null
+            }
+            is Result.Error -> emptyList()
+        }
+
     suspend fun uploadCompanyLogo(file: java.io.File): Result<String> {
         return try {
             val requestFile = file.readBytes().toRequestBody("image/*".toMediaTypeOrNull())
@@ -262,14 +287,15 @@ class CrmRepository @Inject constructor(
     // ── Jobs ─────────────────────────────────────────────────────────────
 
     suspend fun getJobs(
-        status: String? = null, techId: String? = null, custId: String? = null,
+        status: String? = null, type: String? = null, techId: String? = null, custId: String? = null,
         from: String? = null, to: String? = null,
         activityFrom: String? = null, activityTo: String? = null,
         priority: String? = null, search: String? = null,
         sort: String? = null, page: Int = 1, includeAllStatuses: Boolean = false,
         partnerView: Boolean = false
-    ) = call { api.getJobs(status, techId, custId, from, to, activityFrom, activityTo,
-        priority, search, sort, page,
+    ) = call { api.getJobs(status = status, type = type, techId = techId, custId = custId,
+        from = from, to = to, activityFrom = activityFrom, activityTo = activityTo,
+        priority = priority, search = search, sort = sort, page = page,
         includeAllStatuses = if (includeAllStatuses) true else null,
         partnerView = if (partnerView) true else null) }
 
@@ -413,6 +439,11 @@ class CrmRepository @Inject constructor(
         call { api.updateDepositSettings(id, mapOf("deposit_required" to depositRequired, "deposit_amount" to depositAmount, "deposit_type" to depositType)) }
     suspend fun collectDeposit(id: String, amountCollected: Double, paymentMethod: String) =
         call { api.collectDeposit(id, mapOf("amount_collected" to amountCollected, "payment_method" to paymentMethod)) }
+    // P2.38: estimate deposit via ScanPay.
+    suspend fun createDepositScanPayQr(id: String)                  = call { api.createDepositScanPayQr(id) }
+    suspend fun createDepositScanPayLink(id: String, method: String = "sms") =
+        call { api.createDepositScanPayLink(id, mapOf("method" to method)) }
+    suspend fun getDepositStatus(id: String)                        = call { api.getDepositStatus(id) }
 
     // ── Invoices ─────────────────────────────────────────────────────────
 
@@ -445,10 +476,12 @@ class CrmRepository @Inject constructor(
     // P2.5: scanpayCharge removed — phantom (no backend payments/scanpay/charge route, no caller).
     suspend fun createScanPayQr(invoiceId: String, amount: Double)  =
         call { api.createScanPayQr(mapOf("invoice_id" to invoiceId, "amount" to amount)) }
-    suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null) =
+    suspend fun createScanPayLink(invoiceId: String, amount: Double, customerPhone: String? = null,
+                                  customerEmail: String? = null, method: String = "sms") =
         call { api.createScanPayLink(buildMap {
-            put("invoice_id", invoiceId); put("amount", amount)
+            put("invoice_id", invoiceId); put("amount", amount); put("method", method)
             if (customerPhone != null) put("customer_phone", customerPhone)
+            if (customerEmail != null) put("customer_email", customerEmail)
         }) }
     suspend fun getScanPayStatus(invoiceId: String)                 = call { api.getScanPayStatus(invoiceId) }
     suspend fun getPaymentSummary(from: String? = null, to: String? = null) = call { api.getPaymentSummary(from, to) }

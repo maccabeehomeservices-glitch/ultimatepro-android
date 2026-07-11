@@ -445,7 +445,10 @@ data class Invoice(
     val followup_last_sent_at: String? = null,
     val followup_stopped: Boolean = false,
     val qbo_id: String? = null,
-    val created_at: String? = null
+    val created_at: String? = null,
+    // P2.40: set true on the PUT /invoices/:id response when editing the line items of a
+    // signed invoice cleared the signature — the client re-prompts for a new signature.
+    val requires_resign: Boolean = false
 ) : Parcelable {
     val customerName get() = "$cust_first ${cust_last ?: ""}".trim().ifBlank { "—" }
     val isSigned get() = customer_signature != null
@@ -847,6 +850,14 @@ data class ScanPayStatusResponse(
     val paid_at: String? = null,
     val amount:  Double? = null,
     val balance: Double? = null
+)
+
+// P2.38: poll target for the estimate-deposit ScanPay QR/link sheet.
+data class DepositStatusResponse(
+    val deposit_required:     Boolean = false,
+    val deposit_collected:    Boolean = false,
+    val deposit_collected_at: String? = null,
+    val amount:               Double  = 0.0
 )
 
 // ─── Contractor Network ───────────────────────────────────────────────────
