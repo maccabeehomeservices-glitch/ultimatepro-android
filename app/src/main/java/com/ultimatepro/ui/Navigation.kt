@@ -149,16 +149,16 @@ interface NotifPrefsEntryPoint {
 
 private data class BottomTab(
     val route: String,
-    val icon:  androidx.compose.ui.graphics.vector.ImageVector,
+    @androidx.annotation.DrawableRes val iconRes: Int,   // P3.1b: Fable up-* VectorDrawable
     val label: String
 )
 
 private val bottomTabs = listOf(
-    BottomTab(Route.DASHBOARD, Icons.Default.Dashboard, "Dashboard"),
-    BottomTab(Route.JOBS,      Icons.Default.Work,       "Jobs"),
-    BottomTab(Route.CUSTOMERS, Icons.Default.People,     "Customers"),
-    BottomTab(Route.PHONE,     Icons.Default.Phone,      "Phone"),
-    BottomTab(Route.SETTINGS,  Icons.Default.MoreHoriz,  "More"),
+    BottomTab(Route.DASHBOARD, com.ultimatepro.R.drawable.up_dashboard, "Dashboard"),
+    BottomTab(Route.JOBS,      com.ultimatepro.R.drawable.up_jobs,      "Jobs"),
+    BottomTab(Route.CUSTOMERS, com.ultimatepro.R.drawable.up_customers, "Customers"),
+    BottomTab(Route.PHONE,     com.ultimatepro.R.drawable.up_phone,     "Phone"),
+    BottomTab(Route.SETTINGS,  com.ultimatepro.R.drawable.up_more,      "More"),
 )
 
 @Composable
@@ -856,7 +856,7 @@ private fun ScaffoldWithNav(navController: NavHostController, current: String,
                             popUpTo(Route.DASHBOARD) { saveState = true }
                             launchSingleTop = true; restoreState = true
                         }
-                    }, icon = { Icon(tab.icon, tab.label) }, label = { Text(tab.label) })
+                    }, icon = { Icon(androidx.compose.ui.res.painterResource(tab.iconRes), tab.label) }, label = { Text(tab.label) })
             }
         }
     }) { padding ->
