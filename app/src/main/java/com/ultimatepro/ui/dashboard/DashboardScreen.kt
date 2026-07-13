@@ -155,7 +155,7 @@ fun DashboardScreen(
                         }
                     ) {
                         IconButton(onClick = onNotifications) {
-                            Icon(Icons.Default.Notifications, "Notifications")
+                            Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_bell), "Notifications")
                         }
                     }
                     IconButton(onClick = onLiveMap) { Icon(Icons.Default.Map, "Live Map") }
@@ -174,14 +174,14 @@ fun DashboardScreen(
                             }
                     ) {
                         Icon(
-                            Icons.Default.AccessTime,
+                            androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_clock),
                             contentDescription = if (isClockedIn) "Clock Out" else "Clock In",
                             tint = if (isClockedIn) Color.White
                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
                 }
             )
         }
@@ -378,7 +378,7 @@ fun DashboardScreen(
                         contentColor   = Color.White,
                         modifier       = Modifier.align(Alignment.BottomEnd).padding(16.dp)
                     ) {
-                        Icon(Icons.Default.ContentPaste, null)
+                        Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_paste_ticket), null)
                         Spacer(Modifier.width(8.dp))
                         Text("Paste Ticket", fontWeight = FontWeight.SemiBold)
                     }

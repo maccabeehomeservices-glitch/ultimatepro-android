@@ -409,7 +409,7 @@ fun PayrollScreen(
                     }
                     if (com.ultimatepro.domain.model.canUi(role, perms, "accounting_earnings", "full"))
                         IconButton(onClick = { showMarkPaid = true }) { Icon(Icons.Default.Paid, "Mark range paid", tint = AppColors.Green) }
-                    IconButton(onClick = { vm.loadSummary(period) }) { Icon(Icons.Default.Refresh, null) }
+                    IconButton(onClick = { vm.loadSummary(period) }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) }
                 }
             )
         }

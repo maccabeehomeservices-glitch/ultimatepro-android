@@ -388,7 +388,7 @@ fun NetworkListScreen(
                         Icon(Icons.Default.PersonAdd, "Find Contractor")
                     }
                     IconButton(onClick = { vm.loadConnections() }) {
-                        Icon(Icons.Default.Refresh, "Refresh")
+                        Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh")
                     }
                 }
             )
@@ -984,7 +984,7 @@ fun PartnerReportScreen(
                 actions = {
                     IconButton(onClick = {
                         vm.loadReport(connectionId, dateFrom.ifBlank { null }, dateTo.ifBlank { null })
-                    }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
                 }
             )
         },

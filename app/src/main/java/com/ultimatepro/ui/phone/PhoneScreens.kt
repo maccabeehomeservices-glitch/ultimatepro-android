@@ -214,7 +214,7 @@ fun PhoneScreen(
                 IconButton(onClick = onQueue) {
                     BadgedBox(badge = {}) { Icon(Icons.Default.LiveTv, "Live Queue") }
                 }
-                IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, null) }
+                IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) }
             }
         )
     }) { padding ->
@@ -395,7 +395,7 @@ fun SecondChanceScreen(
         TopAppBar(
             title = { Text("Second Chance Leads", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            actions = { IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, null) } }
+            actions = { IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
         )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -528,7 +528,7 @@ fun LiveQueueScreen(onBack: () -> Unit, vm: PhoneViewModel = hiltViewModel()) {
         TopAppBar(
             title = { Text("Live Call Queue", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            actions = { IconButton(onClick = { vm.loadLiveQueue() }) { Icon(Icons.Default.Refresh, null) } }
+            actions = { IconButton(onClick = { vm.loadLiveQueue() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
         )
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding),

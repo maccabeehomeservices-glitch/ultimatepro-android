@@ -139,7 +139,7 @@ fun AilotScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
                 }
             )
         }

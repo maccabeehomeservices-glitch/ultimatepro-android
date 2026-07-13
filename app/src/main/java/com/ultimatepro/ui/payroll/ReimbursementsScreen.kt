@@ -127,7 +127,7 @@ fun ReimbursementsScreen(
             TopAppBar(
                 title = { Text("Material Reimbursements", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-                actions = { IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, null) } }
+                actions = { IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
             )
         }
     ) { padding ->
