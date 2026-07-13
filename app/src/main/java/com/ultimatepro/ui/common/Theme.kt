@@ -37,7 +37,7 @@ private val DarkError             = Color(0xFFEF4444)
 
 // ── Status colors (canonical — must match ui-design-system.md §1) ─────────────
 val StatusUnscheduled = Color(0xFF6B7280)  // Slate
-val StatusScheduled   = Color(0xFF2563EB)  // Blue
+val StatusScheduled   = Color(0xFF2D6FC2)  // Blue (unified on token blue — David 2026-07-13)
 val StatusEnRoute     = Color(0xFFF97316)  // Orange
 val StatusInProgress  = Color(0xFF0EA5E9)  // Sky
 val StatusHolding     = Color(0xFFD97706)  // Amber
@@ -49,11 +49,11 @@ val StatusOnHold      = Color(0xFF0891B2)
 
 // ── Brand / accent colors (used as fixed accent tints across the app) ─────────
 object AppColors {
-    // NOTE: Blue/Accent/Green/Orange/Red/Purple/Slate are LEFT UNCHANGED — they feed the
-    // invoiceStatus/priority/leadStatus mappers below, which law 4 freezes. Recoloring the
-    // brand blue to token #2D6FC2 for the ~31 AppColors call sites is a sweep-phase decision
-    // (would require decoupling the mapper blue). See the P3.1b unknowns ledger.
-    val Blue      = Color(0xFF1A73E8)  // FROZEN (mapper-fed)
+    // Accent/Green/Orange/Red/Purple/Slate stay frozen (they feed invoiceStatus/priority/
+    // leadStatus). Blue was UNIFIED to token #2D6FC2 (David 2026-07-13, ruling #1): the
+    // brand blue + invoice-sent/priority-medium/lead-new + job-'scheduled' all = #2D6FC2,
+    // moved in lockstep across android + web statusColor + ui-design-system.md §1.
+    val Blue      = Color(0xFF2D6FC2)  // unified token blue (David 2026-07-13; feeds invoice/priority/lead mappers)
     val BlueDark  = Color(0xFF1E4E8C)  // → blueTextOnPearl
     val BlueLight = Color(0xFF4C8BE0)  // → blue (dark)
     val Accent    = Color(0xFF34A853)  // FROZEN (leadStatus qualified)
