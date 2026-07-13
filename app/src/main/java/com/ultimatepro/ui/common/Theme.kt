@@ -7,32 +7,32 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// ── Light palette ─────────────────────────────────────────────────────────────
-private val LightBackground       = Color(0xFFF5F7FA)
-private val LightSurface          = Color(0xFFFFFFFF)
-private val LightSurfaceVariant   = Color(0xFFDDE3ED)
-private val LightPrimary          = Color(0xFF1A73E8)
-private val LightPrimaryVariant   = Color(0xFF1557B0)
-private val LightSecondary        = Color(0xFF34A853)
+// ── Light palette (P3.1b pearl/brass tokens) ──────────────────────────────────
+private val LightBackground       = Color(0xFFF6F3EC)  // background
+private val LightSurface          = Color(0xFFFFFFFF)  // card
+private val LightSurfaceVariant   = Color(0xFFE4DFD2)  // hairline (nearest neutral token)
+private val LightPrimary          = Color(0xFF2D6FC2)  // blue
+private val LightPrimaryVariant   = Color(0xFF1E4E8C)  // blueTextOnPearl (deep blue)
+private val LightSecondary        = Color(0xFFA9812E)  // brassText (brass = secondary accent)
 private val LightOnPrimary        = Color(0xFFFFFFFF)
-private val LightOnBackground     = Color(0xFF1C1C1E)
-private val LightOnSurface        = Color(0xFF1C1C1E)
-private val LightOnSurfaceVariant = Color(0xFF6B7280)
-private val LightBorder           = Color(0xFFB0BEC5)
-private val LightError            = Color(0xFFDC2626)
+private val LightOnBackground     = Color(0xFF1D1C18)  // ink
+private val LightOnSurface        = Color(0xFF1D1C18)  // ink
+private val LightOnSurfaceVariant = Color(0xFF7A7466)  // muted
+private val LightBorder           = Color(0xFFE4DFD2)  // hairline
+private val LightError            = Color(0xFFDC2626)  // status red (unchanged)
 
-// ── Dark palette ──────────────────────────────────────────────────────────────
-private val DarkBackground        = Color(0xFF0B1824)
-private val DarkSurface           = Color(0xFF0F2032)
-private val DarkSurfaceVariant    = Color(0xFF1A3A5C)
-private val DarkPrimary           = Color(0xFF3A7BD5)
-private val DarkPrimaryVariant    = Color(0xFF2D5FA8)
-private val DarkSecondary         = Color(0xFF34A853)
+// ── Dark palette (P3.1b pearl/brass tokens) ───────────────────────────────────
+private val DarkBackground        = Color(0xFF141419)  // background
+private val DarkSurface           = Color(0xFF1D1D24)  // card
+private val DarkSurfaceVariant    = Color(0xFF2B2B33)  // hairline
+private val DarkPrimary           = Color(0xFF4C8BE0)  // blue (dark)
+private val DarkPrimaryVariant    = Color(0xFF2D6FC2)  // light blue as dark container
+private val DarkSecondary         = Color(0xFFD8B87C)  // brassText/Border (dark)
 private val DarkOnPrimary         = Color(0xFFFFFFFF)
-private val DarkOnBackground      = Color(0xFFE8F0FE)
-private val DarkOnSurface         = Color(0xFFE8F0FE)
-private val DarkOnSurfaceVariant  = Color(0xFF8899AA)
-private val DarkBorder            = Color(0xFF1E3A5F)
+private val DarkOnBackground      = Color(0xFFF2EEE4)  // ink (dark)
+private val DarkOnSurface         = Color(0xFFF2EEE4)  // ink (dark)
+private val DarkOnSurfaceVariant  = Color(0xFFA29C8E)  // muted (dark)
+private val DarkBorder            = Color(0xFF2B2B33)  // hairline (dark)
 private val DarkError             = Color(0xFFEF4444)
 
 // ── Status colors (canonical — must match ui-design-system.md §1) ─────────────
@@ -49,16 +49,28 @@ val StatusOnHold      = Color(0xFF0891B2)
 
 // ── Brand / accent colors (used as fixed accent tints across the app) ─────────
 object AppColors {
-    val Blue      = Color(0xFF1A73E8)
-    val BlueDark  = Color(0xFF1557B0)
-    val BlueLight = Color(0xFF4A9EF5)
-    val Accent    = Color(0xFF34A853)
-    val Green     = Color(0xFF16A34A)
-    val Orange    = Color(0xFFF97316)
-    val Red       = Color(0xFFDC2626)
-    val Purple    = Color(0xFF7C3AED)
-    val Slate     = Color(0xFF6B7280)
-    val Gold      = Color(0xFFF59E0B)
+    // NOTE: Blue/Accent/Green/Orange/Red/Purple/Slate are LEFT UNCHANGED — they feed the
+    // invoiceStatus/priority/leadStatus mappers below, which law 4 freezes. Recoloring the
+    // brand blue to token #2D6FC2 for the ~31 AppColors call sites is a sweep-phase decision
+    // (would require decoupling the mapper blue). See the P3.1b unknowns ledger.
+    val Blue      = Color(0xFF1A73E8)  // FROZEN (mapper-fed)
+    val BlueDark  = Color(0xFF1E4E8C)  // → blueTextOnPearl
+    val BlueLight = Color(0xFF4C8BE0)  // → blue (dark)
+    val Accent    = Color(0xFF34A853)  // FROZEN (leadStatus qualified)
+    val Green     = Color(0xFF16A34A)  // FROZEN (mapper)
+    val Orange    = Color(0xFFF97316)  // FROZEN (mapper)
+    val Red       = Color(0xFFDC2626)  // FROZEN (mapper)
+    val Purple    = Color(0xFF7C3AED)  // FROZEN (mapper)
+    val Slate     = Color(0xFF6B7280)  // FROZEN (mapper)
+    val Gold      = Color(0xFFA9812E)  // → brassText
+
+    // ── P3.1b pearl/brass vocabulary (for the pearl button + sweep-phase adoption) ──
+    val PearlFace       = Color(0xFFFDFCF8)  // signature pearl (stays pearl in dark)
+    val BrassText       = Color(0xFFA9812E)
+    val BrassBorder     = Color(0xFFC9A25C)
+    val BrassDeep       = Color(0xFF8A6A3B)
+    val BrassBright     = Color(0xFFE7CE99)
+    val BlueTextOnPearl = Color(0xFF1E4E8C)
 
     fun jobStatus(status: String?): Color = when (status) {
         "scheduled"   -> StatusScheduled
