@@ -1,5 +1,6 @@
 package com.ultimatepro.ui.common
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
@@ -21,8 +22,8 @@ fun AppSwitch(
             uncheckedTrackColor  = Color(0xFFCFD8DC),
             uncheckedBorderColor = Color(0xFF90A4AE),
             checkedThumbColor    = Color(0xFFFFFFFF),
-            checkedTrackColor    = Color(0xFF1A73E8),
-            checkedBorderColor   = Color(0xFF1A73E8)
+            checkedTrackColor    = MaterialTheme.colorScheme.primary,
+            checkedBorderColor   = MaterialTheme.colorScheme.primary
         )
     )
 }

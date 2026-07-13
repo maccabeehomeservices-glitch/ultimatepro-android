@@ -223,7 +223,7 @@ fun CompanyProfileScreen(
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (s.snackError) Color(0xFFDC2626) else Color(0xFF16A34A)
+                            containerColor = if (s.snackError) MaterialTheme.colorScheme.error else AppColors.Green
                         )
                     ) {
                         Text(
@@ -290,7 +290,7 @@ fun CompanyProfileScreen(
                         Text(
                             "Share with contractors to connect on the network",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF3B82F6)
+                            color = AppColors.Blue
                         )
                     }
                 }
@@ -303,7 +303,7 @@ fun CompanyProfileScreen(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                         .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
@@ -318,7 +318,7 @@ fun CompanyProfileScreen(
                         Icon(
                             Icons.Default.Business,
                             contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -341,8 +341,8 @@ fun CompanyProfileScreen(
                             onClick = { vm.removeLogo() },
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.height(44.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444))
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                         ) {
                             Text("Remove Logo")
                         }

@@ -1454,12 +1454,12 @@ fun JobDetailScreen(
                 // (geolocation-or-omit via FusedLocation in dispatchJob).
                 if (job.status in listOf("unscheduled", "scheduled")) {
                     IconButton(onClick = { showDispatchConfirm = true }) {
-                        Icon(Icons.Default.Navigation, "Dispatch", tint = Color(0xFF1A73E8))
+                        Icon(Icons.Default.Navigation, "Dispatch", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 if (job.status == "en_route") {
                     IconButton(onClick = { showArrivedConfirm = true }) {
-                        Icon(Icons.Default.LocationOn, "Arrived", tint = Color(0xFF10B981))
+                        Icon(Icons.Default.LocationOn, "Arrived", tint = AppColors.Green)
                     }
                 }
                 IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = AppColors.Red) }
@@ -3730,7 +3730,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 Text(
                     "SEND VIA",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF1A73E8),
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(start = 4.dp)
@@ -3941,7 +3941,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     onClick = { doSave() },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A73E8)),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     enabled = !state.isParsing
                 ) {
                     Text("Save Changes", fontWeight = FontWeight.Bold)
@@ -3955,17 +3955,17 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     onClick = { doSave() },
                     modifier = Modifier.weight(1f).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.5.dp, Color(0xFF1A73E8)),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     enabled = !state.isParsing
                 ) {
-                    Text("Save Job", fontWeight = FontWeight.Bold, color = Color(0xFF1A73E8))
+                    Text("Save Job", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
                 if (isNonSelf) {
                     Button(
                         onClick = { doSave(sendToTech = true) },
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A73E8)),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         enabled = !state.isParsing
                     ) {
                         Text("Save & Send", fontWeight = FontWeight.Bold)

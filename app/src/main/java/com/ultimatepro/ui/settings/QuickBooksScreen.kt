@@ -218,11 +218,11 @@ fun QuickBooksScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(Icons.Default.CheckCircle, null,
-                                                Modifier.size(12.dp), tint = Color(0xFF2E7D32))
+                                                Modifier.size(12.dp), tint = AppColors.Green)
                                             Spacer(Modifier.width(4.dp))
                                             Text("Connected",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = Color(0xFF2E7D32))
+                                                color = AppColors.Green)
                                         }
                                     }
                                 }
@@ -279,7 +279,7 @@ fun QuickBooksScreen(
                                             Text("${result.synced} synced${if (result.errors > 0) " · ${result.errors} errors" else ""}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = if (result.errors > 0) MaterialTheme.colorScheme.error
-                                                        else Color(0xFF2E7D32))
+                                                        else AppColors.Green)
                                         }
                                     }
                                 }

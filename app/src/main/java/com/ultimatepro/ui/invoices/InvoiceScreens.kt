@@ -908,7 +908,7 @@ fun PaymentScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !spLoading && chargeAmount > 0,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16a34a))
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
                 ) {
                     if (spLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                     else { Icon(Icons.Default.QrCode, null); Spacer(Modifier.width(8.dp)); Text("Generate QR — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }

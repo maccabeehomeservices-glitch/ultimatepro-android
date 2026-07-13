@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- P3.1b Fable up-* icon (auto-generated). Tint at usage (Icon(tint=token)). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M5 4h3.2l1.8 4.6-2.3 1.5a12 12 0 0 0 5.2 5.2l1.5-2.3L19 14.8V18a2 2 0 0 1-2 2C9.8 20 4 14.2 4 7a2 2 0 0 1 1-3z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

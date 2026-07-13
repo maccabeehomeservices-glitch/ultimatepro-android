@@ -326,7 +326,7 @@ private fun StatusChip(status: String) {
     val (label, color) = when (status) {
         "active"   -> "Active"   to AppColors.Green
         "pending"  -> "Pending"  to AppColors.Gold
-        "paused"   -> "Paused"   to Color(0xFF9E9E9E)
+        "paused"   -> "Paused"   to AppColors.Slate
         "declined" -> "Declined" to AppColors.Red
         else       -> status.replaceFirstChar { it.uppercase() } to AppColors.Blue
     }

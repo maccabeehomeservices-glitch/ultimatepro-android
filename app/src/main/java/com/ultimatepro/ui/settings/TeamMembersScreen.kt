@@ -244,7 +244,7 @@ fun TeamMembersScreen(
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (s.snackError) Color(0xFFDC2626) else Color(0xFF16A34A)
+                            containerColor = if (s.snackError) MaterialTheme.colorScheme.error else AppColors.Green
                         )
                     ) {
                         Text(msg, color = Color.White,
@@ -361,10 +361,10 @@ private fun UserCard(
     onReactivate: () -> Unit,
 ) {
     val roleColor = when (user.role) {
-        "owner"      -> Color(0xFF7C3AED)
+        "owner"      -> AppColors.Purple
         "admin"      -> AppColors.Blue
-        "manager"    -> Color(0xFF16A34A)
-        "technician" -> Color(0xFFD97706)
+        "manager"    -> AppColors.Green
+        "technician" -> AppColors.Orange
         "dispatcher" -> Color(0xFF4338CA)
         else         -> MaterialTheme.colorScheme.onSurfaceVariant
     }
