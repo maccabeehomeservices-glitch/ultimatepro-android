@@ -937,12 +937,7 @@ fun CustomerEditScreen(
                     onRemove = { pendingEmails.removeAt(idx) }
                 )
             }
-            TextButton(
-                onClick = { pendingEmails.add(ContactEntry("", "Personal")) },
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-            ) {
-                Text("+ Add email", color = AppColors.Blue, fontSize = 13.sp)
-            }
+            AppButton(onClick = { pendingEmails.add(ContactEntry("", "Personal")) }, label = "+ Add email", ghost = true)
 
             // Primary phone field
             OutlinedTextField(
@@ -990,12 +985,7 @@ fun CustomerEditScreen(
                     onRemove = { pendingPhones.removeAt(idx) }
                 )
             }
-            TextButton(
-                onClick = { pendingPhones.add(ContactEntry("", "Mobile")) },
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-            ) {
-                Text("+ Add phone number", color = AppColors.Blue, fontSize = 13.sp)
-            }
+            AppButton(onClick = { pendingPhones.add(ContactEntry("", "Mobile")) }, label = "+ Add phone number", ghost = true)
 
             SectionLabel("ADDRESS")
             OutlinedTextField(address, { address = it }, label = { Text("Street") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
@@ -1199,12 +1189,7 @@ private fun MultiContactFields(
             }
         }
     }
-    TextButton(
-        onClick = { entries.add(ContactEntry("", labels[0])) },
-        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-    ) {
-        Text(addLabel, color = AppColors.Blue, fontSize = 13.sp)
-    }
+    AppButton(onClick = { entries.add(ContactEntry("", labels[0])) }, label = addLabel, ghost = true)
 }
 
 /** Dialog for adding a single contact from CustomerDetailScreen and CustomerEditScreen. */

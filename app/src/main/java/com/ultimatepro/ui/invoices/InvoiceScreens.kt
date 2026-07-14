@@ -644,9 +644,7 @@ private fun EditableInvoiceItemsCard(
             }
             HorizontalDivider()
         }
-        TextButton(onClick = onAdd, modifier = Modifier.padding(top = 4.dp)) {
-            Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Add item")
-        }
+        AppButton(onClick = onAdd, label = "Add item", modifier = Modifier.padding(top = 4.dp), ghost = true, leadingIcon = Icons.Default.Add)
         val editTotal = draft.sumOf { if (it.item_type == "discount") -it.lineTotal else it.lineTotal }
         HorizontalDivider(Modifier.padding(vertical = 6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

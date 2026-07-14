@@ -2077,7 +2077,7 @@ fun SignatureCanvas(strokes: MutableList<List<Offset>>, currentStroke: MutableLi
             drawLine(androidx.compose.ui.graphics.Color.LightGray, Offset(20f, size.height * 0.8f), Offset(size.width - 20f, size.height * 0.8f), strokeWidth = 1f)
         }
         if (strokes.isEmpty() && currentStroke.isEmpty()) Text("Sign here", color = androidx.compose.ui.graphics.Color.LightGray, modifier = Modifier.align(Alignment.Center))
-        TextButton(onClick = { strokes.clear(); currentStroke.clear() }, modifier = Modifier.align(Alignment.TopEnd)) { Text("Clear", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall) }
+        AppButton(onClick = { strokes.clear(); currentStroke.clear() }, label = "Clear", modifier = Modifier.align(Alignment.TopEnd), ghost = true, labelColor = AppColors.Red)
     }
 }
 

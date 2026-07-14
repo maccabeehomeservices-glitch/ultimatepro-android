@@ -1171,11 +1171,7 @@ private fun PricebookErrorView(message: String, onRetry: () -> Unit) {
             Icon(Icons.Default.CloudOff, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(40.dp))
             Text("Failed to load items", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
             Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = onRetry) {
-                Icon(Icons.Default.Refresh, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Tap to retry")
-            }
+            AppButton(onClick = onRetry, label = "Tap to retry", ghost = true, leadingIcon = Icons.Default.Refresh)
         }
     }
 }

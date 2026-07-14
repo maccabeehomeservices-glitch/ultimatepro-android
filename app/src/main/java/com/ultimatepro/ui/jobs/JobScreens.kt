@@ -1083,10 +1083,7 @@ private fun JobListCard(job: Job, onClick: () -> Unit, onRestore: () -> Unit) {
                 // Row 4: scheduled / status / tech (or Restore if deleted)
                 if (isDeleted) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(
-                            onClick = onRestore,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        ) { Text("Restore", color = AppColors.Blue, style = MaterialTheme.typography.labelMedium) }
+                        AppButton(onClick = onRestore, label = "Restore", ghost = true, labelColor = Color(0xFFD97706))
                     }
                 } else {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1550,12 +1547,7 @@ fun JobDetailScreen(
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (canApproveEarnings) {
-                                TextButton(
-                                    onClick = { vm.approveEarnings(jobId) },
-                                    modifier = Modifier.heightIn(min = 44.dp)
-                                ) {
-                                    Text("Approve", color = AppColors.Orange, fontWeight = FontWeight.SemiBold)
-                                }
+                                AppButton(onClick = { vm.approveEarnings(jobId) }, label = "Approve", modifier = Modifier.heightIn(min = 44.dp), ghost = true, labelColor = AppColors.Green)
                             }
                         }
                     }
@@ -1599,14 +1591,8 @@ fun JobDetailScreen(
                             }
                             if (job.partner_status != null) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(onClick = { vm.confirmPartnerStatus(jobId, "confirm") },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                        Text("Confirm", color = AppColors.Green, style = MaterialTheme.typography.labelMedium)
-                                    }
-                                    TextButton(onClick = { vm.confirmPartnerStatus(jobId, "dispute") },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                        Text("Dispute", color = AppColors.Red, style = MaterialTheme.typography.labelMedium)
-                                    }
+                                    AppButton(onClick = { vm.confirmPartnerStatus(jobId, "confirm") }, label = "Confirm", ghost = true, labelColor = AppColors.Green)
+                                    AppButton(onClick = { vm.confirmPartnerStatus(jobId, "dispute") }, label = "Dispute", ghost = true, labelColor = AppColors.Red)
                                 }
                             }
                         }
@@ -2036,11 +2022,7 @@ fun JobDetailScreen(
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                TextButton(onClick = onCreateEstimate) {
-                                    Icon(Icons.Default.Add, null, Modifier.size(14.dp), tint = AppColors.Blue)
-                                    Spacer(Modifier.width(3.dp))
-                                    Text("+ Add Another Estimate", style = MaterialTheme.typography.bodySmall, color = AppColors.Blue)
-                                }
+                                AppButton(onClick = onCreateEstimate, label = "+ Add Estimate", ghost = true)
                             }
                             if (jobInvoice != null) {
                                 AppButton(onClick = { onViewInvoice(jobInvoice.id) }, label = "View Invoice", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Receipt)
@@ -2195,19 +2177,20 @@ fun JobDetailScreen(
                         AppButton(
                             onClick = { jobInvoice?.let { onViewInvoice(it.id) } },
                             label = "Send Receipt",
-                            modifier = Modifier.weight(1f).height(48.dp),
+                            modifier = Modifier.weight(1f),
                             enabled = jobInvoice != null
                         )
                         AppButton(
                             onClick = { vm.updateStatus(jobId, "cancelled") },
                             label = "Cancel Job",
-                            modifier = Modifier.weight(1f).height(48.dp),
+                            modifier = Modifier.weight(1f),
                             labelColor = AppColors.Red
                         )
                         AppButton(
                             onClick = onComplete,
                             label = "Completed",
-                            modifier = Modifier.weight(1f).height(48.dp)
+                            modifier = Modifier.weight(1f),
+                            labelColor = AppColors.Green
                         )
                     }
                 }
@@ -3748,9 +3731,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     }
                 }
             }
-            TextButton(onClick = { extraCustPhones.add("") }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
-                Text("+ Add phone number", color = AppColors.Blue, fontSize = 13.sp)
-            }
+            AppButton(onClick = { extraCustPhones.add("") }, label = "+ Add phone number", ghost = true)
             OutlinedTextField(custEmail, { custEmail = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
             extraCustEmails.forEachIndexed { idx, em ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -3760,9 +3741,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                     }
                 }
             }
-            TextButton(onClick = { extraCustEmails.add("") }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
-                Text("+ Add email", color = AppColors.Blue, fontSize = 13.sp)
-            }
+            AppButton(onClick = { extraCustEmails.add("") }, label = "+ Add email", ghost = true)
             } // end else — create-mode editable customer inputs
 
             // ── ADDRESS ───────────────────────────────────────────────────
