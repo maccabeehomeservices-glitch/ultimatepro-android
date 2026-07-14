@@ -19,6 +19,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.JobyRule
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppSwitch
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -128,21 +129,24 @@ fun AilotScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("⚡ Ailot", fontWeight = FontWeight.SemiBold)
-                        Text("Smart Automation Rules", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("⚡ Ailot", fontWeight = FontWeight.SemiBold)
+                            Text("Smart Automation Rules", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+                    },
+                    actions = {
+                        IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
-                },
-                actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
-                }
-            )
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         when {

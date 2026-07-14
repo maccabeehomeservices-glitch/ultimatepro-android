@@ -190,6 +190,7 @@ fun LiveMapScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Live Map", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
@@ -203,6 +204,8 @@ fun LiveMapScreen(
                     )
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {

@@ -40,7 +40,7 @@ fun ReportsScreen(onBack:()->Unit, onTimesheetReport:()->Unit={}, vm:ReportsView
     LaunchedEffect(Unit){vm.exportMsg.collect{msg->snackbarState.showSnackbar(msg)}}
     Scaffold(
         snackbarHost={SnackbarHost(snackbarState)},
-        topBar={TopAppBar(title={Text("Reports",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},actions={IconButton(onClick={vm.load();vm.loadSources()}){Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh),null)}})}
+        topBar={Column{TopAppBar(title={Text("Reports",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},actions={IconButton(onClick={vm.load();vm.loadSources()}){Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh),null)}});ShineHairline()}}
     ){padding->
         if(loading){LoadingView();return@Scaffold}
         val r=report

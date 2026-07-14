@@ -35,6 +35,7 @@ import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.ErrorView
 import com.ultimatepro.ui.common.LoadingView
 import com.ultimatepro.ui.common.SectionLabel
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -382,6 +383,7 @@ fun NetworkListScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("My Network", fontWeight = FontWeight.Bold) },
                 actions = {
@@ -393,6 +395,8 @@ fun NetworkListScreen(
                     }
                 }
             )
+            ShineHairline()
+            }
         },
         snackbarHost = { SnackbarHost(snackState) }
     ) { padding ->
@@ -510,10 +514,13 @@ fun NetworkDetailScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text(conn?.partnerCompanyName ?: "Connection", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }
             )
+            ShineHairline()
+            }
         },
         snackbarHost = { SnackbarHost(snackState) }
     ) { padding ->
@@ -972,6 +979,7 @@ fun PartnerReportScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     val partnerName = reportConnection()?.get("partner_name") as? String ?: "Partner"
@@ -986,6 +994,8 @@ fun PartnerReportScreen(
                     }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), "Refresh") }
                 }
             )
+            ShineHairline()
+            }
         },
         floatingActionButton = {
             if (report != null) {

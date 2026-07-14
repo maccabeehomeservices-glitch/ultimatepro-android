@@ -28,6 +28,7 @@ import com.ultimatepro.domain.model.JobSource
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -198,10 +199,13 @@ fun JobSourcesScreen(onBack: () -> Unit, vm: JobSourceViewModel = hiltViewModel(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Job Sources", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Job Sources", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         },
         floatingActionButton = {
             if (selectedTab == 0) {

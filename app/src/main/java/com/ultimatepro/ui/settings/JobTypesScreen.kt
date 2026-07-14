@@ -19,6 +19,7 @@ import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.ui.common.AppButton
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,10 +101,13 @@ fun JobTypesScreen(onBack: () -> Unit, vm: JobTypesViewModel = hiltViewModel()) 
     val activeKeys = remember(s.active) { s.active.map { it.second }.toSet() }
 
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Job Types", fontWeight = FontWeight.Bold) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
-        )
+        Column {
+            TopAppBar(
+                title = { Text("Job Types", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
+            )
+            ShineHairline()
+        }
     }) { pad ->
         if (s.loading) {
             Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

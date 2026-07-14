@@ -242,6 +242,7 @@ fun CustomerListScreen(
                 onValueChange = { search = it; vm.load(it.ifBlank { null }) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
             )
+            ShineHairline()
         }
     }, floatingActionButton = {
         if (com.ultimatepro.domain.model.canUi(role, perms, "customers", "edit_self")) {
@@ -354,15 +355,18 @@ fun CustomerDetailScreen(
 
     val c = state.selected
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(c?.fullName ?: "Customer", fontWeight = FontWeight.Bold) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            actions = {
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") }
-                IconButton(onClick = onNewJob) { Icon(Icons.Default.Add, "New Job") }
-                // P2.1l Part A: customers are permanent — no delete/archive overflow menu.
-            }
-        )
+        Column {
+            TopAppBar(
+                title = { Text(c?.fullName ?: "Customer", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                actions = {
+                    IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") }
+                    IconButton(onClick = onNewJob) { Icon(Icons.Default.Add, "New Job") }
+                    // P2.1l Part A: customers are permanent — no delete/archive overflow menu.
+                }
+            )
+            ShineHairline()
+        }
     }) { padding ->
         if (c == null) { LoadingView(); return@Scaffold }
 
@@ -708,6 +712,7 @@ fun CustomerFormScreen(
     val canSave = first.isNotBlank()
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text("New Customer", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -731,6 +736,8 @@ fun CustomerFormScreen(
                 ) { Text("Save", fontWeight = FontWeight.SemiBold) }
             }
         )
+        ShineHairline()
+        }
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
@@ -862,6 +869,7 @@ fun CustomerEditScreen(
     }
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text("Edit Customer", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -883,6 +891,8 @@ fun CustomerEditScreen(
                 ) { Text("Save", fontWeight = FontWeight.SemiBold) }
             }
         )
+        ShineHairline()
+        }
     }) { padding ->
         if (!initialized && state.selected == null) { LoadingView(); return@Scaffold }
 

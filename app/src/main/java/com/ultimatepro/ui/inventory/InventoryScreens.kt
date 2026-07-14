@@ -30,6 +30,7 @@ import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.QtyStepperRow
+import com.ultimatepro.ui.common.ShineHairline
 import com.ultimatepro.ui.common.StatusBadge
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -65,6 +66,7 @@ fun InventoryScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Inventory") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -74,6 +76,8 @@ fun InventoryScreen(
                     }
                 }
             )
+            ShineHairline()
+            }
         },
         floatingActionButton = {
             if (settings.enabled && selectedTab == 1) {
@@ -385,6 +389,7 @@ fun TruckStockScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text(truck?.name ?: "Truck Stock") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -393,6 +398,8 @@ fun TruckStockScreen(
                     IconButton(onClick = onRestockRequests) { Icon(Icons.Default.Assignment, "Restock Requests") }
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -578,10 +585,13 @@ fun RestockRequestsScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Restock Requests") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -651,10 +661,13 @@ fun RestockRequestDetailScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Restock Request") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         if (request == null) {

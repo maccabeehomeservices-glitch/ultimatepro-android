@@ -99,7 +99,7 @@ fun SettingsScreen(
     val notifNewBookings   by (notifPrefs?.newBookings   ?: kotlinx.coroutines.flow.flowOf(true)).collectAsState(true)
     val notifEstimates     by (notifPrefs?.estimateSigned ?: kotlinx.coroutines.flow.flowOf(true)).collectAsState(true)
 
-    Scaffold(topBar = { TopAppBar(title = { Text("More", fontWeight = FontWeight.Bold) }) }) { padding ->
+    Scaffold(topBar = { Column { TopAppBar(title = { Text("More", fontWeight = FontWeight.Bold) }); ShineHairline() } }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(8.dp))
 

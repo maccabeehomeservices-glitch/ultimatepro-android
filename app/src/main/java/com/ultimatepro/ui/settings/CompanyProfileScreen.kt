@@ -34,6 +34,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.Company
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -204,14 +205,17 @@ fun CompanyProfileScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Company Profile", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+            Column {
+                TopAppBar(
+                    title = { Text("Company Profile", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
                     }
-                }
-            )
+                )
+                ShineHairline()
+            }
         },
         snackbarHost = {
             s.snack?.let { msg ->

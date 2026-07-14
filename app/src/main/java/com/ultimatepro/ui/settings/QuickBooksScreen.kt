@@ -25,6 +25,7 @@ import com.ultimatepro.domain.model.QboStatus
 import com.ultimatepro.domain.model.QboSyncResult
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -161,14 +162,17 @@ fun QuickBooksScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Integrations", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+            Column {
+                TopAppBar(
+                    title = { Text("Integrations", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, "Back")
+                        }
                     }
-                }
-            )
+                )
+                ShineHairline()
+            }
         },
         snackbarHost = { SnackbarHost(snackState) }
     ) { padding ->

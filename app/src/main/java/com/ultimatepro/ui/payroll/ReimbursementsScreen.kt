@@ -124,11 +124,14 @@ fun ReimbursementsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Material Reimbursements", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
                 actions = { IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {

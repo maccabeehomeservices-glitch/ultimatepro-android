@@ -262,7 +262,7 @@ fun InvoiceListScreen(
     val invoices by vm.invoices.collectAsState(); val loading by vm.loading.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Invoices", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) },
+        topBar = { Column { TopAppBar(title = { Text("Invoices", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }); ShineHairline() } },
         floatingActionButton = {
             AppButton(
                 onClick = { showPicker = true },
@@ -325,8 +325,8 @@ fun InvoiceNewScreen(
         }
     }
     Scaffold(snackbarHost = { SnackbarHost(snack) },
-        topBar = { TopAppBar(title = { Text("New Invoice", fontWeight = FontWeight.Bold) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) }
+        topBar = { Column { TopAppBar(title = { Text("New Invoice", fontWeight = FontWeight.Bold) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }); ShineHairline() } }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -402,9 +402,12 @@ fun InvoiceDetailScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text(inv?.invoice_number ?: "Invoice", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = { inv?.let { i -> if (i.status != "paid") IconButton(onClick = { onSend(i.id) }) { Icon(Icons.Default.Send, null) } } })
+        ShineHairline()
+        }
     }) { padding ->
         inv?.let { i ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -759,7 +762,10 @@ fun InvoiceSignScreen(
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.clearMsg() } }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Customer Signature", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             inv?.let { i ->
@@ -834,7 +840,10 @@ fun PaymentScreen(
     )
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Process Payment", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             // Amount — editable, pre-filled with balance due
@@ -1202,8 +1211,11 @@ fun ReceiptScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Payment Receipt", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -1423,8 +1435,11 @@ fun InvoiceSendScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Send Invoice", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),

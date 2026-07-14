@@ -101,6 +101,7 @@ fun ProfitSimulatorScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
@@ -112,6 +113,8 @@ fun ProfitSimulatorScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Column(

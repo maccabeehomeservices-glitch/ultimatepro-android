@@ -22,6 +22,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.RosterTech
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.QtyStepperRow
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -99,12 +100,15 @@ fun RosterTechsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Technicians", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Technicians", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                    }
+                )
+                ShineHairline()
+            }
         },
         floatingActionButton = {
             FloatingActionButton(

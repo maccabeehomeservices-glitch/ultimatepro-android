@@ -29,6 +29,7 @@ import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.User
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -221,19 +222,22 @@ fun TeamMembersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Team Members", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+            Column {
+                TopAppBar(
+                    title = { Text("Team Members", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showAdd = true }) {
+                            Icon(Icons.Default.PersonAdd, "Add member")
+                        }
                     }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) {
-                        Icon(Icons.Default.PersonAdd, "Add member")
-                    }
-                }
-            )
+                )
+                ShineHairline()
+            }
         },
         snackbarHost = {
             s.snack?.let { msg ->

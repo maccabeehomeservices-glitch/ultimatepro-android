@@ -16,7 +16,7 @@ fun CalendarScreen(onJob:(String)->Unit, onBack:()->Unit, vm:JobViewModel= hiltV
     val state by vm.state.collectAsState()
     var selected by remember{mutableStateOf(LocalDate.now())}
     LaunchedEffect(selected){vm.load(from=selected.toString(),to=selected.toString())}
-    Scaffold(topBar={TopAppBar(title={Text("Calendar",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},actions={IconButton(onClick={selected=LocalDate.now()}){Icon(Icons.Default.Today,null)}})}){padding->
+    Scaffold(topBar={Column{TopAppBar(title={Text("Calendar",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},actions={IconButton(onClick={selected=LocalDate.now()}){Icon(Icons.Default.Today,null)}});ShineHairline()}}){padding->
         Column(Modifier.fillMaxSize().padding(padding)){
             // Week strip
             val wkStart=selected.minusDays(selected.dayOfWeek.value.toLong()-1)

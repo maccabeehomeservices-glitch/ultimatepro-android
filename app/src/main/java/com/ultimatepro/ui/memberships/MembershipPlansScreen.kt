@@ -23,6 +23,7 @@ import com.ultimatepro.domain.model.MembershipPlan
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
+import com.ultimatepro.ui.common.ShineHairline
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -70,15 +71,18 @@ fun MembershipPlansScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Membership Plans") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, "Add Plan") }
-                }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Membership Plans") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                    },
+                    actions = {
+                        IconButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, "Add Plan") }
+                    }
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         if (loading && plans.isEmpty()) {

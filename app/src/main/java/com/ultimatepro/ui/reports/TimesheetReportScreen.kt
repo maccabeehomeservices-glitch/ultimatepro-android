@@ -22,6 +22,7 @@ import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.LoadingView
 import com.ultimatepro.ui.common.SectionLabel
+import com.ultimatepro.ui.common.ShineHairline
 import com.ultimatepro.ui.dashboard.TimesheetViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -108,6 +109,7 @@ fun TimesheetReportScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Timesheet Report", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -129,6 +131,8 @@ fun TimesheetReportScreen(
                     }
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         LazyColumn(

@@ -919,6 +919,8 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
                     onValueChange = { search = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
                 )
+
+                ShineHairline()
             }
         },
         floatingActionButton = {
@@ -1434,6 +1436,7 @@ fun JobDetailScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+        Column {
         TopAppBar(
             title = { Text(job?.job_number ?: "Job Detail", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -1457,6 +1460,8 @@ fun JobDetailScreen(
                 // the inline status control (tap the status pill below) is the single way.
             } }
         )
+        ShineHairline()
+        }
     }) { padding ->
         if (job == null) { LoadingView(); return@Scaffold }
         val sc = AppColors.jobStatus(job.status)
@@ -3031,10 +3036,13 @@ fun CompleteJobScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Complete Job", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Complete Job", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         if (state.loading) { LoadingView(); return@Scaffold }
@@ -3507,6 +3515,7 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
 
     // ══════════════════════════════════════════════════════════════════════
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text(if (isEdit) "Edit Job" else "New Job", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -3533,6 +3542,8 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
                 ) { Text("Save", fontWeight = FontWeight.SemiBold) }
             }
         )
+        ShineHairline()
+        }
     }) { padding ->
         // KEY FIX: imePadding() before verticalScroll so keyboard shifts content up
         Column(

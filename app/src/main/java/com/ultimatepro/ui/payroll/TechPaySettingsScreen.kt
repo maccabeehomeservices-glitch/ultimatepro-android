@@ -75,7 +75,7 @@ fun TechPaySettingsScreen(userId:String, onBack:()->Unit, vm:TechSettingsViewMod
     LaunchedEffect(state.message){if(state.message!=null){snack.showSnackbar(state.message!!);vm.clearMessages()}}
     LaunchedEffect(state.error){if(state.error!=null){snack.showSnackbar(state.error!!);vm.clearMessages()}}
 
-    Scaffold(snackbarHost={SnackbarHost(snack)},topBar={TopAppBar(
+    Scaffold(snackbarHost={SnackbarHost(snack)},topBar={Column{TopAppBar(
         title={Column{Text(if(state.firstName.isNotBlank())"${state.firstName} ${state.lastName}".trim() else "Tech Profile",fontWeight=FontWeight.Bold);Text("Profile & Pay Settings",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
         navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}},
         actions={
@@ -84,7 +84,7 @@ fun TechPaySettingsScreen(userId:String, onBack:()->Unit, vm:TechSettingsViewMod
                 else Text("Save",fontWeight=FontWeight.Bold)
             }
         }
-    )}){padding->
+    );ShineHairline()}}){padding->
         if(state.loading){LoadingView();return@Scaffold}
         Column(Modifier.fillMaxSize().padding(padding)){
             TabRow(selectedTabIndex=tab){listOf("Contact","Pay Rate","Materials").forEachIndexed{i,l->Tab(selected=tab==i,onClick={tab=i},text={Text(l)})}}

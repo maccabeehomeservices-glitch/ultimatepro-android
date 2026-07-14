@@ -398,6 +398,7 @@ fun PayrollScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Payroll & Reports", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -412,6 +413,8 @@ fun PayrollScreen(
                     IconButton(onClick = { vm.loadSummary(period) }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) }
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -901,6 +904,7 @@ fun ActorReportScreen(
     val netPay = periodEarnings + bonusTotal - deductTotal
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = {
                 Column {
@@ -923,6 +927,8 @@ fun ActorReportScreen(
                 }
             }
         )
+        ShineHairline()
+        }
     }) { padding ->
         if (state.actorReportLoading) { LoadingView(); return@Scaffold }
         if (report.isEmpty()) { EmptyView("No report data", Icons.Default.Assessment); return@Scaffold }

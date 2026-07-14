@@ -208,6 +208,7 @@ fun PhoneScreen(
     }
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text("Phone System", fontWeight = FontWeight.Bold) },
             actions = {
@@ -217,6 +218,8 @@ fun PhoneScreen(
                 IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) }
             }
         )
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
 
@@ -392,11 +395,14 @@ fun SecondChanceScreen(
     val context = LocalContext.current
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text("Second Chance Leads", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = { IconButton(onClick = { vm.load() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
         )
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
 
@@ -510,11 +516,14 @@ fun LiveQueueScreen(onBack: () -> Unit, vm: PhoneViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { vm.loadLiveQueue() }
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(
             title = { Text("Live Call Queue", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = { IconButton(onClick = { vm.loadLiveQueue() }) { Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_refresh), null) } }
         )
+        ShineHairline()
+        }
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -697,6 +706,7 @@ fun SmsThreadScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
@@ -708,6 +718,8 @@ fun SmsThreadScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
             )
+            ShineHairline()
+            }
         },
         bottomBar = {
             Row(

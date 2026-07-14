@@ -23,6 +23,7 @@ import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.AppNotification
 import com.ultimatepro.ui.common.AppButton
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -137,6 +138,7 @@ fun NotificationsScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -157,6 +159,8 @@ fun NotificationsScreen(
                     }
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         when {

@@ -658,7 +658,7 @@ fun EstimateListScreen(
     val estimates by vm.estimates.collectAsState(); val loading by vm.loading.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Estimates", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) },
+        topBar = { Column { TopAppBar(title = { Text("Estimates", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }); ShineHairline() } },
         floatingActionButton = {
             AppButton(
                 onClick = { showPicker = true },
@@ -748,6 +748,7 @@ fun EstimateDetailScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text(est?.estimate_number ?: "Estimate", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
             actions = {
@@ -762,6 +763,8 @@ fun EstimateDetailScreen(
                     }
                 }
             })
+        ShineHairline()
+        }
     }) { padding ->
         est?.let { e ->
             // Decode signature bitmap once
@@ -1152,9 +1155,12 @@ fun EstimateBuildScreen(
 
     Scaffold(snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(title = { Text(if (estimateId == null) "Create Estimate" else "Edit Estimate", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
                 actions = { if (st.saving) CircularProgressIndicator(Modifier.size(20.dp).padding(end = 8.dp), strokeWidth = 2.dp) })
+            ShineHairline()
+            }
         },
         bottomBar = {
             val hasItems = if (isGbb) st.tiers.any { it.lineItems.isNotEmpty() } else st.lineItems.isNotEmpty()
@@ -1564,10 +1570,13 @@ fun PresentTiersScreen(
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.clearMsg() } }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(
             title = { Text("Choose Your Option", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
         )
+        ShineHairline()
+        }
     }, bottomBar = {
         Surface(tonalElevation = 8.dp) {
             AppButton(
@@ -1669,7 +1678,10 @@ fun EstimateSignScreen(
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.clearMsg() } }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Customer Signature", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             // Summary
@@ -1801,10 +1813,13 @@ fun DepositCollectionScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text("Collect Deposit", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         if (success) {
@@ -2145,8 +2160,11 @@ fun EstimateSendScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
+        Column {
         TopAppBar(title = { Text("Send for Signature", fontWeight = FontWeight.Bold) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),

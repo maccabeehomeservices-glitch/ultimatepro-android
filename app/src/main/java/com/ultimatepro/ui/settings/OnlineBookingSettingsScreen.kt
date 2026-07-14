@@ -34,6 +34,7 @@ import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.QtyStepperRow
 import com.ultimatepro.ui.common.SectionLabel
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -215,10 +216,13 @@ fun OnlineBookingSettingsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
-            TopAppBar(
-                title = { Text("Online Booking", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Online Booking", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         if (loading && settings == null) {

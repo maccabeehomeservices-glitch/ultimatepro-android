@@ -324,17 +324,20 @@ fun PricebookCategoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Price Book", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-                actions = {
-                    if (onRequestRestock != null) {
-                        IconButton(onClick = { onRequestRestock.invoke() }) {
-                            Icon(Icons.Default.Inventory2, "Request Restock")
+            Column {
+                TopAppBar(
+                    title = { Text("Price Book", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                    actions = {
+                        if (onRequestRestock != null) {
+                            IconButton(onClick = { onRequestRestock.invoke() }) {
+                                Icon(Icons.Default.Inventory2, "Request Restock")
+                            }
                         }
                     }
-                }
-            )
+                )
+                ShineHairline()
+            }
         },
         bottomBar = {
             if (pickedCount > 0) {
@@ -532,10 +535,13 @@ fun PricebookItemListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(categoryName, fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text(categoryName, fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         },
         floatingActionButton = {
             // Only shown on the flat "All Items" picker (categoryId == null = opened from estimate)
@@ -750,10 +756,13 @@ fun PricebookItemDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Add Item", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Add Item", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         if (item == null) { LoadingView(); return@Scaffold }
@@ -887,10 +896,13 @@ fun PricebookManageScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
-            TopAppBar(
-                title = { Text("Price Book", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Price Book", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                )
+                ShineHairline()
+            }
         },
         floatingActionButton = {
             AppButton(
@@ -1209,13 +1221,16 @@ fun PricebookMainScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
-            TopAppBar(
-                title = { Text("Price Book", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-                actions = {
-                    IconButton(onClick = onImport) { Icon(Icons.Default.Upload, "Import") }
-                }
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Price Book", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                    actions = {
+                        IconButton(onClick = onImport) { Icon(Icons.Default.Upload, "Import") }
+                    }
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).nestedScroll(pullState.nestedScrollConnection)) {
@@ -1318,18 +1333,21 @@ fun PricebookCategoryItemsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
-            TopAppBar(
-                title = { Text(category?.name ?: "Items", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-                actions = {
-                    IconButton(onClick = { showEditCat = true }) {
-                        Icon(Icons.Default.Edit, null)
+            Column {
+                TopAppBar(
+                    title = { Text(category?.name ?: "Items", fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                    actions = {
+                        IconButton(onClick = { showEditCat = true }) {
+                            Icon(Icons.Default.Edit, null)
+                        }
+                        IconButton(onClick = { showDeleteCat = true }) {
+                            Icon(Icons.Default.Delete, null, tint = AppColors.Red)
+                        }
                     }
-                    IconButton(onClick = { showDeleteCat = true }) {
-                        Icon(Icons.Default.Delete, null, tint = AppColors.Red)
-                    }
-                }
-            )
+                )
+                ShineHairline()
+            }
         },
         floatingActionButton = {
             AppButton(

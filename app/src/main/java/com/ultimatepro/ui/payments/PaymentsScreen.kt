@@ -24,7 +24,7 @@ class PaymentsViewModel @Inject constructor(private val repo:CrmRepository):View
 @Composable
 fun PaymentsScreen(onBack:()->Unit, vm:PaymentsViewModel= hiltViewModel()){
     val payments by vm.payments.collectAsState(); val loading by vm.loading.collectAsState()
-    Scaffold(topBar={TopAppBar(title={Text("Payments",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}})}){padding->
+    Scaffold(topBar={Column{TopAppBar(title={Text("Payments",fontWeight=FontWeight.Bold)},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,null)}});ShineHairline()}}){padding->
         if(loading)LoadingView() else if(payments.isEmpty())EmptyView("No payments yet",Icons.Default.Payments) else
         LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
             items(payments,key={it.id}){p->

@@ -19,6 +19,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.CustomField
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -149,15 +150,18 @@ fun CustomFieldsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Custom Fields", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
-                actions = {
-                    IconButton(onClick = { editingField = null; showDialog = true }) {
-                        Icon(Icons.Default.Add, "Add Field")
+            Column {
+                TopAppBar(
+                    title = { Text("Custom Fields", fontWeight = FontWeight.SemiBold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
+                    actions = {
+                        IconButton(onClick = { editingField = null; showDialog = true }) {
+                            Icon(Icons.Default.Add, "Add Field")
+                        }
                     }
-                }
-            )
+                )
+                ShineHairline()
+            }
         }
     ) { padding ->
         when {

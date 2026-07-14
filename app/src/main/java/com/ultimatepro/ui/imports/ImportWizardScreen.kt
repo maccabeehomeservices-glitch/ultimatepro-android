@@ -25,6 +25,7 @@ import com.ultimatepro.domain.model.FieldMapping
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.LoadingView
+import com.ultimatepro.ui.common.ShineHairline
 
 private val PRICEBOOK_TARGET_FIELDS = listOf(
     null, "name", "price", "sku", "description", "cost", "category", "item_type"
@@ -60,6 +61,7 @@ fun ImportWizardScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = { Text(title, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
@@ -69,6 +71,8 @@ fun ImportWizardScreen(
                     }) { Icon(Icons.Default.ArrowBack, null) }
                 }
             )
+            ShineHairline()
+            }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {

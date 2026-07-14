@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
+import com.ultimatepro.ui.common.ShineHairline
 
 @Composable
 fun LoginScreen(
@@ -139,8 +140,11 @@ fun RegisterScreen(
     LaunchedEffect(state.done) { if (state.done) onSuccess() }
 
     Scaffold(topBar = {
+        Column {
         TopAppBar(title = { Text("Create Account") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } })
+        ShineHairline()
+        }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
