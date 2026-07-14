@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -49,6 +51,7 @@ fun DashboardScreen(
     onPasteTicket:   (String) -> Unit = {},
     onCustomer:      (String) -> Unit = {},
     onNotifications: () -> Unit = {},
+    onNewJob:        () -> Unit = {},
     vm:         DashboardViewModel  = hiltViewModel(),
     mapVm:      MapViewModel        = hiltViewModel(),
     membershipVm: MembershipViewModel = hiltViewModel(),
@@ -193,24 +196,28 @@ fun DashboardScreen(
                 val r = state.report
                 val secondChance = r?.second_chance?.new_count ?: 0
 
-                Box(Modifier.fillMaxSize().padding(padding)) {
-                    Column(Modifier.fillMaxSize()) {
+                val mapCtx = androidx.compose.ui.platform.LocalContext.current
+                val darkMap = MaterialTheme.colorScheme.background == Color(0xFF141419)
+                Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
 
-                        // ── KPI row ───────────────────────────────────────
-                        Spacer(Modifier.height(4.dp))
-                        LazyRow(
-                            Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            item { KpiTile("Month Revenue", formatMoney(r?.revenue?.this_month ?: 0.0), Icons.Default.AttachMoney, AppColors.Blue, modifier = Modifier.width(150.dp)) }
-                            item { KpiTile("Jobs Today",    "${r?.jobs?.total ?: 0}", Icons.Default.Work, AppColors.Purple, modifier = Modifier.width(130.dp)) }
-                            item { KpiTile("Completed",     "${r?.jobs?.completed ?: 0}", Icons.Default.CheckCircle, AppColors.Green, modifier = Modifier.width(130.dp)) }
-                            item { KpiTile("In Progress",   "${r?.jobs?.in_progress ?: 0}", Icons.Default.PlayArrow, AppColors.Orange, modifier = Modifier.width(130.dp)) }
-                            item { KpiTile("Missed Calls",  "${r?.calls?.missed ?: 0}", Icons.Default.PhoneMissed, AppColors.Red, modifier = Modifier.width(130.dp)) }
-                            item { KpiTile("2nd Chance",    "${r?.second_chance?.new_count ?: 0}", Icons.Default.Replay, AppColors.Gold, modifier = Modifier.width(140.dp)) }
+                        // ── Header shine hairline ─────────────────────────
+                        ShineHairline()
+                        Spacer(Modifier.height(10.dp))
+
+                        // ── Stat cards — slim, 3-across (2 rows of 3) ─────
+                        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                KpiTile("Revenue", formatMoney(r?.revenue?.this_month ?: 0.0), Icons.Default.AttachMoney, AppColors.Blue, modifier = Modifier.weight(1f))
+                                KpiTile("Jobs Today", "${r?.jobs?.total ?: 0}", Icons.Default.Work, AppColors.Purple, modifier = Modifier.weight(1f))
+                                KpiTile("Completed", "${r?.jobs?.completed ?: 0}", Icons.Default.CheckCircle, AppColors.Green, modifier = Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                KpiTile("In Progress", "${r?.jobs?.in_progress ?: 0}", Icons.Default.PlayArrow, AppColors.Orange, modifier = Modifier.weight(1f))
+                                KpiTile("Missed Calls", "${r?.calls?.missed ?: 0}", Icons.Default.PhoneMissed, AppColors.Red, modifier = Modifier.weight(1f))
+                                KpiTile("2nd Chance", "${r?.second_chance?.new_count ?: 0}", Icons.Default.Replay, AppColors.Gold, modifier = Modifier.weight(1f))
+                            }
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
 
                         // ── Second-chance banner ──────────────────────────
                         if (secondChance > 0) {
@@ -308,18 +315,23 @@ fun DashboardScreen(
                             )
                         }
 
-                        // ── Map — fills all remaining space ───────────────
-                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                        // ── Map — large, fixed height, themed pearl/obsidian style ──
+                        Box(Modifier.fillMaxWidth().height(360.dp).padding(horizontal = 16.dp).clip(RoundedCornerShape(14.dp))) {
                             GoogleMap(
                                 modifier            = Modifier.fillMaxSize(),
                                 cameraPositionState = camState,
-                                properties          = MapProperties(mapType = MapType.NORMAL),
+                                properties          = MapProperties(
+                                    mapType = MapType.NORMAL,
+                                    mapStyleOptions = com.google.android.gms.maps.model.MapStyleOptions.loadRawResourceStyle(
+                                        mapCtx, if (darkMap) com.ultimatepro.R.raw.map_style_obsidian else com.ultimatepro.R.raw.map_style_light
+                                    )
+                                ),
                                 uiSettings          = MapUiSettings(
                                     zoomGesturesEnabled     = true,
                                     scrollGesturesEnabled   = false,
                                     rotationGesturesEnabled = false,
                                     tiltGesturesEnabled     = false,
-                                    zoomControlsEnabled     = true,
+                                    zoomControlsEnabled     = false,
                                     myLocationButtonEnabled = false
                                 ),
                                 onMapLoaded = { mapReady = true }
@@ -353,10 +365,10 @@ fun DashboardScreen(
                                     color = AppColors.Blue)
                             }
 
-                            // Job count badge — bottom-left overlay
+                            // Job count badge — top-left overlay
                             if (mapJobs.isNotEmpty()) {
                                 Surface(
-                                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+                                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                                     shape    = RoundedCornerShape(8.dp),
                                     color    = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
                                 ) {
@@ -368,20 +380,59 @@ fun DashboardScreen(
                                     )
                                 }
                             }
-                        }
-                    }
 
-                    // ── Paste Ticket FAB — overlaid above bottom nav ──────
-                    ExtendedFloatingActionButton(
-                        onClick        = { clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let { onPasteTicket(it) } },
-                        containerColor = AppColors.Blue,
-                        contentColor   = Color.White,
-                        modifier       = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-                    ) {
-                        Icon(androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_paste_ticket), null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Paste Ticket", fontWeight = FontWeight.SemiBold)
-                    }
+                            // New Job + Paste Ticket — both AppButton, on the map face
+                            Row(
+                                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                AppButton(
+                                    onClick     = onNewJob,
+                                    label       = "New Job",
+                                    leadingIcon = Icons.Default.Add,
+                                    modifier    = Modifier.weight(1f)
+                                )
+                                AppButton(
+                                    onClick        = { clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let { onPasteTicket(it) } },
+                                    label          = "Paste Ticket",
+                                    leadingPainter = androidx.compose.ui.res.painterResource(com.ultimatepro.R.drawable.up_paste_ticket),
+                                    modifier       = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+
+                        // ── Active Jobs (schedule) below the map ──────────
+                        SectionLabel("ACTIVE JOBS", modifier = Modifier.padding(horizontal = 16.dp))
+                        if (mapJobs.isEmpty()) {
+                            Text(
+                                "No active jobs right now.",
+                                style    = MaterialTheme.typography.bodySmall,
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        } else {
+                            mapJobs.take(8).forEach { pin ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onJobClick(pin.job.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(pin.job.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                                        pin.job.customerName?.takeIf { it.isNotBlank() }?.let {
+                                            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                        }
+                                    }
+                                    StatusBadge(
+                                        label = (pin.job.status ?: "").replace("_", " ").replaceFirstChar { it.uppercase() },
+                                        color = AppColors.jobStatus(pin.job.status),
+                                        small = true
+                                    )
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            }
+                        }
+                        Spacer(Modifier.height(20.dp))
                 }
             }
         }

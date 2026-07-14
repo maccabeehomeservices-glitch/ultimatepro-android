@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ultimatepro.domain.model.FieldMapping
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.LoadingView
 
@@ -125,14 +126,12 @@ private fun IdleStep(type: String, onPickFile: () -> Unit) {
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(Modifier.height(32.dp))
-        Button(
+        AppButton(
             onClick = onPickFile,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.FolderOpen, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Choose File")
-        }
+            label = "Choose File",
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = Icons.Default.FolderOpen
+        )
     }
 }
 
@@ -237,13 +236,12 @@ private fun MappingReviewStep(
             Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(onClick = onBack, Modifier.weight(1f)) { Text("Back") }
-            Button(
+            AppButton(onClick = onBack, label = "Back", modifier = Modifier.weight(1f))
+            AppButton(
                 onClick = { onNext(mappings.toList(), categoryAssignments.toMap(), preview.categoryGuesses) },
-                Modifier.weight(1f)
-            ) {
-                Text("Continue")
-            }
+                label = "Continue",
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -433,9 +431,7 @@ private fun CompleteStep(result: ImportState.Complete, onDone: () -> Unit) {
         }
 
         Spacer(Modifier.height(32.dp))
-        Button(onClick = onDone, Modifier.fillMaxWidth()) {
-            Text("Done")
-        }
+        AppButton(onClick = onDone, label = "Done", modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -460,7 +456,7 @@ private fun ErrorStep(message: String, onRetry: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onRetry) { Text("Try Again") }
+        AppButton(onClick = onRetry, label = "Try Again")
     }
 }
 

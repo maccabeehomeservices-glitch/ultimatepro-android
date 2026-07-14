@@ -351,9 +351,7 @@ fun PricebookCategoryScreen(
                             "$pickedCount item${if (pickedCount != 1) "s" else ""} · ${formatMoney(pickedTotal)}",
                             fontWeight = FontWeight.SemiBold
                         )
-                        Button(onClick = onDone, shape = RoundedCornerShape(10.dp)) {
-                            Text("Done →")
-                        }
+                        AppButton(onClick = onDone, label = "Done →")
                     }
                 }
             }
@@ -542,10 +540,10 @@ fun PricebookItemListScreen(
         floatingActionButton = {
             // Only shown on the flat "All Items" picker (categoryId == null = opened from estimate)
             if (categoryId == null && com.ultimatepro.domain.model.canUi(role, perms, "pricebook", "edit_self")) {
-                ExtendedFloatingActionButton(
+                AppButton(
                     onClick = { showNewItemForm = true; newItemError = null },
-                    icon    = { Icon(Icons.Default.Add, null) },
-                    text    = { Text("New Item") }
+                    label   = "New Item",
+                    leadingIcon = Icons.Default.Add
                 )
             }
         },
@@ -561,7 +559,7 @@ fun PricebookItemListScreen(
                             "$pickedCount item${if (pickedCount != 1) "s" else ""} · ${formatMoney(pickedTotal)}",
                             fontWeight = FontWeight.SemiBold
                         )
-                        Button(onClick = onDone, shape = RoundedCornerShape(10.dp)) { Text("Done →") }
+                        AppButton(onClick = onDone, label = "Done →")
                     }
                 }
             }
@@ -842,7 +840,7 @@ fun PricebookItemDetailScreen(
             Spacer(Modifier.weight(1f))
 
             // Add button
-            Button(
+            AppButton(
                 onClick = {
                     val price = priceText.toDoubleOrNull() ?: item.unit_price
                     val overridePrice = if (overriding && price != item.unit_price) price else null
@@ -855,16 +853,10 @@ fun PricebookItemDetailScreen(
                     }
                     onAdded()
                 },
+                label = if (entry != null) "Update in Estimate" else "Add to Estimate",
                 modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.AddShoppingCart, null)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (entry != null) "Update in Estimate" else "Add to Estimate",
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                leadingIcon = Icons.Default.AddShoppingCart
+            )
         }
     }
 }
@@ -901,10 +893,10 @@ fun PricebookManageScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            AppButton(
                 onClick = { editItem = null; showItemForm = true },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("New Item") }
+                label = "New Item",
+                leadingIcon = Icons.Default.Add
             )
         }
     ) { padding ->
@@ -1246,15 +1238,12 @@ fun PricebookMainScreen(
                             ManageCategoryCard(cat = cat, onClick = { onCategory(cat) })
                         }
                     }
-                    OutlinedButton(
+                    AppButton(
                         onClick   = { showAddCat = true },
+                        label     = "Add Category",
                         modifier  = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        shape     = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Add, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Add Category")
-                    }
+                        leadingIcon = Icons.Default.Add
+                    )
                 }
             }
             PullToRefreshContainer(state = pullState, modifier = Modifier.align(Alignment.TopCenter))
@@ -1347,10 +1336,10 @@ fun PricebookCategoryItemsScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            AppButton(
                 onClick = { editItem = null; showItemForm = true },
-                icon    = { Icon(Icons.Default.Add, null) },
-                text    = { Text("Add Item") }
+                label   = "Add Item",
+                leadingIcon = Icons.Default.Add
             )
         }
     ) { padding ->
@@ -1495,12 +1484,12 @@ private fun CategoryFormSheet(
                 }
                 AppSwitch(checked = taxable, onCheckedChange = { taxable = it })
             }
-            Button(
+            AppButton(
                 onClick  = { if (name.isNotBlank()) onSave(name.trim(), taxable) },
+                label    = "Save Category",
                 modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(10.dp),
                 enabled  = name.isNotBlank()
-            ) { Text("Save Category", fontWeight = FontWeight.SemiBold) }
+            )
         }
     }
 }

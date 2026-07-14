@@ -207,12 +207,17 @@ fun LiveMapScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
 
+            val mapCtx = androidx.compose.ui.platform.LocalContext.current
+            val darkMap = MaterialTheme.colorScheme.background == androidx.compose.ui.graphics.Color(0xFF141419)
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = camState,
                 properties = MapProperties(
                     mapType = MapType.NORMAL,
-                    isMyLocationEnabled = false
+                    isMyLocationEnabled = false,
+                    mapStyleOptions = com.google.android.gms.maps.model.MapStyleOptions.loadRawResourceStyle(
+                        mapCtx, if (darkMap) com.ultimatepro.R.raw.map_style_obsidian else com.ultimatepro.R.raw.map_style_light
+                    )
                 ),
                 uiSettings = MapUiSettings(
                     zoomControlsEnabled = true,

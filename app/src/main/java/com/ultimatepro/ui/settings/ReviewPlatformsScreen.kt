@@ -24,6 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.ReviewPlatform
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
@@ -140,21 +141,21 @@ fun ReviewPlatformsScreen(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     quickAddPlatforms.take(2).forEach { qa ->
-                        OutlinedButton(
+                        AppButton(
                             onClick = { editingTarget = ReviewPlatform(id = "", name = qa.name, url = qa.urlHint); showSheet = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) { Text(qa.name) }
+                            label = qa.name,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     quickAddPlatforms.drop(2).forEach { qa ->
-                        OutlinedButton(
+                        AppButton(
                             onClick = { editingTarget = ReviewPlatform(id = "", name = qa.name, url = qa.urlHint); showSheet = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) { Text(qa.name) }
+                            label = qa.name,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }

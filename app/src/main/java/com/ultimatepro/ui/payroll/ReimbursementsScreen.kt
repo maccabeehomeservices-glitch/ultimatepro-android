@@ -252,28 +252,20 @@ private fun ReimbursementCard(
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (item.status == "pending") {
-                        Button(
+                        AppButton(
                             onClick = onApprove,
+                            label = "Approve",
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Blue)
-                        ) {
-                            Icon(Icons.Default.Check, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Approve")
-                        }
+                            leadingIcon = Icons.Default.Check
+                        )
                     }
                     if (item.status == "approved") {
-                        Button(
+                        AppButton(
                             onClick = onPay,
+                            label = "Mark Paid",
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                        ) {
-                            Icon(Icons.Default.Payments, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Mark Paid")
-                        }
+                            leadingIcon = Icons.Default.Payments
+                        )
                     }
                 }
             }

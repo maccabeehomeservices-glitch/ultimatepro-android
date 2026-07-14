@@ -245,10 +245,10 @@ fun CustomerListScreen(
         }
     }, floatingActionButton = {
         if (com.ultimatepro.domain.model.canUi(role, perms, "customers", "edit_self")) {
-            ExtendedFloatingActionButton(
+            AppButton(
                 onClick = onNewCustomer,
-                icon = { Icon(Icons.Default.PersonAdd, null) },
-                text = { Text("New") }
+                label = "New",
+                leadingIcon = Icons.Default.PersonAdd
             )
         }
     }) { padding ->
@@ -529,26 +529,26 @@ fun CustomerDetailScreen(
                         )
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = {
-                                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                cm.setPrimaryClip(ClipData.newPlainText("Portal Link", portalUrl))
-                            }) {
-                                Icon(Icons.Default.Link, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Copy Link")
-                            }
-                            OutlinedButton(onClick = {
-                                val share = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, portalUrl)
-                                    putExtra(Intent.EXTRA_SUBJECT, "Your account portal — ${c.fullName}")
-                                }
-                                ctx.startActivity(Intent.createChooser(share, "Share portal link"))
-                            }) {
-                                Icon(Icons.Default.Send, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Share")
-                            }
+                            AppButton(
+                                onClick = {
+                                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("Portal Link", portalUrl))
+                                },
+                                label = "Copy Link",
+                                leadingIcon = Icons.Default.Link
+                            )
+                            AppButton(
+                                onClick = {
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, portalUrl)
+                                        putExtra(Intent.EXTRA_SUBJECT, "Your account portal — ${c.fullName}")
+                                    }
+                                    ctx.startActivity(Intent.createChooser(share, "Share portal link"))
+                                },
+                                label = "Share",
+                                leadingIcon = Icons.Default.Send
+                            )
                         }
                     }
                 }

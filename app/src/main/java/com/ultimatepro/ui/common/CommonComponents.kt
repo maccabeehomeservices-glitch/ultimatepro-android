@@ -1,5 +1,6 @@
 package com.ultimatepro.ui.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -46,7 +47,7 @@ fun ErrorView(message: String, onRetry: (() -> Unit)? = null) {
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         onRetry?.let {
             Spacer(Modifier.height(24.dp))
-            Button(onClick = it, shape = RoundedCornerShape(10.dp)) { Text("Retry") }
+            AppButton(onClick = it, label = "Retry")
         }
     }
 }
@@ -88,19 +89,24 @@ fun SearchField(
     )
 }
 
-// ── Status Chip ───────────────────────────────────────────────────────────
+// ── Status / priority chip (P3.1c AppChip spec) ─────────────────────────────
+// Outlined pill: card-face background, 1px border + text in the status's own color,
+// pill radius. Restyle only — the status COLOR passed in is untouched. Face uses the
+// card surface (adapts light/dark) rather than pearl, so a chip on a dark card stays
+// legible instead of reading as a bright light island (logged choice).
 @Composable
 fun StatusBadge(label: String, color: Color, small: Boolean = false) {
     Surface(
-        color  = color.copy(alpha = 0.12f),
-        shape  = RoundedCornerShape(20.dp)
+        color  = MaterialTheme.colorScheme.surface,
+        shape  = RoundedCornerShape(percent = 50),
+        border = BorderStroke(1.dp, color)
     ) {
         Text(
             label,
             color    = color,
-            fontSize = if (small) 12.sp else 13.sp,  // was 10/12sp — label minimum 12sp
+            fontSize = if (small) 12.sp else 13.sp,  // label minimum 12sp
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = if (small) 6.dp else 10.dp, vertical = if (small) 2.dp else 4.dp)
+            modifier = Modifier.padding(horizontal = if (small) 8.dp else 12.dp, vertical = if (small) 2.dp else 4.dp)
         )
     }
 }
@@ -176,7 +182,9 @@ fun AccentBar(color: Color, modifier: Modifier = Modifier) {
     Box(modifier.width(4.dp).fillMaxHeight().clip(RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)).background(color))
 }
 
-// ── Stat card (for dashboard KPI tiles) ───────────────────────────────────
+// ── Stat card (dashboard KPI tile) — P3.1c: slim, card face, 2dp brass top edge ──
+// The metric's data-driven `color` is kept (icon + value). The card face is the
+// theme surface with a 2dp brass top edge (the pearl/brass card signature).
 @Composable
 fun KpiTile(
     title: String,
@@ -186,23 +194,28 @@ fun KpiTile(
     subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier.height(100.dp), shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(0.dp)
+    Card(modifier.height(84.dp), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
     ) {
-        Column(Modifier.fillMaxSize().padding(14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Box(Modifier.size(34.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center) {
-                    Icon(icon, null, Modifier.size(18.dp), tint = color)
+        Column(Modifier.fillMaxSize()) {
+            // 2dp brass top edge (clipped to the card's rounded top)
+            Box(Modifier.fillMaxWidth().height(2.dp).background(AppColors.BrassBorder))
+            Column(Modifier.fillMaxSize().padding(horizontal = 11.dp, vertical = 9.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(26.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center) {
+                        Icon(icon, null, Modifier.size(15.dp), tint = color)
+                    }
                 }
+                Spacer(Modifier.weight(1f))
+                Text(value, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+                Text(title, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                subtitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            Spacer(Modifier.weight(1f))
-            Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = color)
-            Text(title, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            subtitle?.let { Text(it, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

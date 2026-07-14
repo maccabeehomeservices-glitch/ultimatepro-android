@@ -615,16 +615,15 @@ fun CustomerPickerSheet(
                 OutlinedTextField(newEmail, { newEmail = it }, label = { Text("Email") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-                Button(
+                AppButton(
                     onClick = {
                         vm.createCustomer(newFirst, newLast, newPhone, newEmail) { cust -> onPick(cust) }
                     },
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                    enabled = newFirst.isNotBlank() && !creating
-                ) {
-                    if (creating) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    else Text("Create & Select")
-                }
+                    label = "Create & Select",
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = newFirst.isNotBlank() && !creating,
+                    loading = creating
+                )
             }
         }
         HorizontalDivider()
@@ -661,10 +660,10 @@ fun EstimateListScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Estimates", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            AppButton(
                 onClick = { showPicker = true },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("New Estimate") }
+                label = "New Estimate",
+                leadingIcon = Icons.Default.Add
             )
         }
     ) { padding ->
@@ -964,56 +963,41 @@ fun EstimateDetailScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Present in Person button for GBB unsigned estimates
                         if (e.isGbb && !e.isSigned) {
-                            Button(
+                            AppButton(
                                 onClick = { onPresent(e.id) },
+                                label = "Present to Customer",
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Blue)
-                            ) {
-                                Icon(Icons.Default.Slideshow, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Present to Customer", fontWeight = FontWeight.Bold)
-                            }
+                                leadingIcon = Icons.Default.Slideshow
+                            )
                         }
                         if (e.isSigned) {
                             // Signed state: Convert to Invoice is the primary action
-                            Button(
+                            AppButton(
                                 onClick = { converting = true; vm.convert(e.id) { onConvertToInvoice(it) } },
+                                label = "Convert to Invoice",
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                enabled = !converting
-                            ) {
-                                if (converting) CircularProgressIndicator(Modifier.size(18.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                                else { Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Convert to Invoice", fontWeight = FontWeight.Bold) }
-                            }
+                                enabled = !converting,
+                                loading = converting,
+                                leadingIcon = Icons.Default.Receipt
+                            )
                             if (e.deposit_required && !e.deposit_collected) {
-                                Button(
+                                AppButton(
                                     onClick = { onCollectDeposit(e.id) },
+                                    label = "Collect Deposit",
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                                ) {
-                                    Icon(Icons.Default.Payment, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Collect Deposit", fontWeight = FontWeight.Bold)
-                                }
+                                    leadingIcon = Icons.Default.Payment
+                                )
                             }
-                            OutlinedButton(onClick = { onSend(e.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send for Signature")
-                            }
+                            AppButton(onClick = { onSend(e.id) }, label = "Send for Signature", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Draw)
                         } else if (!e.isGbb) {
-                            Button(onClick = { onSign(e.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Get Signature")
-                            }
+                            AppButton(onClick = { onSign(e.id) }, label = "Get Signature", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Draw)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { onSend(e.id) }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Draw, null, Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)); Text("For Signature") }
-                                Button(onClick = { converting = true; vm.convert(e.id) { onConvertToInvoice(it) } }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp), enabled = !converting) { Text("→ Invoice") }
+                                AppButton(onClick = { onSend(e.id) }, label = "For Signature", modifier = Modifier.weight(1f), leadingIcon = Icons.Default.Draw)
+                                AppButton(onClick = { converting = true; vm.convert(e.id) { onConvertToInvoice(it) } }, label = "→ Invoice", modifier = Modifier.weight(1f), enabled = !converting)
                             }
                         } else {
                             // GBB unsigned — additional send for signature option
-                            OutlinedButton(onClick = { onSend(e.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Default.Draw, null, Modifier.size(14.dp)); Spacer(Modifier.width(4.dp)); Text("Send for Remote Signature")
-                            }
+                            AppButton(onClick = { onSend(e.id) }, label = "Send for Remote Signature", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Draw)
                         }
                     }
                 }
@@ -1176,9 +1160,9 @@ fun EstimateBuildScreen(
             val hasItems = if (isGbb) st.tiers.any { it.lineItems.isNotEmpty() } else st.lineItems.isNotEmpty()
             Surface(tonalElevation = 8.dp) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.save(jobId, estimateId) { scope.launch { snack.showSnackbar("Estimate saved") }; scope.launch { delay(700); onBack() } } }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp), enabled = !st.saving) { Text("Save") }
-                    Button(onClick = { vm.save(jobId, estimateId) { onSign(it) } }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp), enabled = hasItems && !st.saving) { Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Get Signature") }
-                    OutlinedButton(onClick = { vm.save(jobId, estimateId) { onSend(it) } }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp), enabled = hasItems && !st.saving) { Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Send for Sig") }
+                    AppButton(onClick = { vm.save(jobId, estimateId) { scope.launch { snack.showSnackbar("Estimate saved") }; scope.launch { delay(700); onBack() } } }, label = "Save", modifier = Modifier.weight(1f), enabled = !st.saving)
+                    AppButton(onClick = { vm.save(jobId, estimateId) { onSign(it) } }, label = "Get Signature", modifier = Modifier.weight(1f), enabled = hasItems && !st.saving, leadingIcon = Icons.Default.Draw)
+                    AppButton(onClick = { vm.save(jobId, estimateId) { onSend(it) } }, label = "Send for Sig", modifier = Modifier.weight(1f), enabled = hasItems && !st.saving, leadingIcon = Icons.Default.Draw)
                 }
             }
         }
@@ -1586,19 +1570,18 @@ fun PresentTiersScreen(
         )
     }, bottomBar = {
         Surface(tonalElevation = 8.dp) {
-            Button(
+            AppButton(
                 onClick = {
-                    val tid = selectedId ?: return@Button
+                    val tid = selectedId ?: return@AppButton
                     selecting = true
                     vm.selectTierAndSign(estimateId, tid) { onTierSelected(tid, estimateId) }
                 },
+                label = "Confirm Selection & Sign",
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp).height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = selectedId != null && !selecting
-            ) {
-                if (selecting) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("Confirm Selection & Sign", fontWeight = FontWeight.Bold) }
-            }
+                enabled = selectedId != null && !selecting,
+                loading = selecting,
+                leadingIcon = Icons.Default.Check
+            )
         }
     }) { padding ->
         est?.let { e ->
@@ -1708,8 +1691,8 @@ fun EstimateSignScreen(
             Text("Sign Below", fontWeight = FontWeight.SemiBold)
             SignatureCanvas(strokes = strokes, currentStroke = currentStroke)
             val density = LocalDensity.current
-            Button(onClick = {
-                if (strokes.isEmpty()) return@Button
+            AppButton(onClick = {
+                if (strokes.isEmpty()) return@AppButton
                 signing = true
                 val w = with(density) { 380.dp.toPx().toInt() }; val h = with(density) { 200.dp.toPx().toInt() }
                 val bm = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -1724,10 +1707,7 @@ fun EstimateSignScreen(
                     pendingNeedsDeposit = needsDeposit
                     showAddToInvoiceDialog = true
                 }
-            }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp), enabled = agreed && strokes.isNotEmpty() && !signing) {
-                if (signing) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("Confirm & Sign", fontWeight = FontWeight.Bold) }
-            }
+            }, label = "Confirm & Sign", modifier = Modifier.fillMaxWidth().height(52.dp), enabled = agreed && strokes.isNotEmpty() && !signing, loading = signing, leadingIcon = Icons.Default.Check)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -1856,9 +1836,7 @@ fun DepositCollectionScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(32.dp))
-                Button(onClick = { onDone(est?.job_id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                    Text("Done", fontWeight = FontWeight.Bold)
-                }
+                AppButton(onClick = { onDone(est?.job_id) }, label = "Done", modifier = Modifier.fillMaxWidth())
             }
         } else {
             est?.let { e ->
@@ -1913,28 +1891,26 @@ fun DepositCollectionScreen(
                         if (method == "credit_card") {
                             // P2.38: real ScanPay — QR on-screen (customer present) + send a payment link.
                             // The webhook marks the deposit collected; we poll deposit-status in the dialogs.
-                            Button(
+                            AppButton(
                                 onClick = { vm.createDepositScanPayQr(estimateId) },
+                                label = "Show QR to Customer",
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                enabled = !depLoading
-                            ) {
-                                if (depLoading) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                                else { Icon(Icons.Default.QrCode, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Show QR to Customer", fontWeight = FontWeight.Bold) }
-                            }
-                            OutlinedButton(
+                                enabled = !depLoading,
+                                loading = depLoading,
+                                leadingIcon = Icons.Default.QrCode
+                            )
+                            AppButton(
                                 onClick = { vm.createDepositScanPayLink(estimateId, "both") },
+                                label = "Send Payment Link",
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                enabled = !depLoading
-                            ) {
-                                Icon(Icons.Default.Link, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send Payment Link")
-                            }
+                                enabled = !depLoading,
+                                leadingIcon = Icons.Default.Link
+                            )
                         } else {
-                            Button(
+                            AppButton(
                                 onClick = {
-                                    val amt = amountText.toDoubleOrNull() ?: return@Button
-                                    if (amt <= 0) return@Button
+                                    val amt = amountText.toDoubleOrNull() ?: return@AppButton
+                                    if (amt <= 0) return@AppButton
                                     collecting = true
                                     vm.collectDeposit(estimateId, amt, method) { remaining ->
                                         collecting = false
@@ -1943,13 +1919,12 @@ fun DepositCollectionScreen(
                                         success = true
                                     }
                                 },
+                                label = "Collect Deposit",
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                enabled = amountText.toDoubleOrNull() != null && !collecting
-                            ) {
-                                if (collecting) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                                else { Icon(Icons.Default.Payment, null, Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("Collect Deposit", fontWeight = FontWeight.Bold) }
-                            }
+                                enabled = amountText.toDoubleOrNull() != null && !collecting,
+                                loading = collecting,
+                                leadingIcon = Icons.Default.Payment
+                            )
                         }
                         TextButton(onClick = { onDone(e.job_id) }, modifier = Modifier.fillMaxWidth()) {
                             Text("Skip for Now", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2016,9 +1991,7 @@ private fun DepositScanPayDialog(
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Text("Waiting for payment…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                OutlinedButton(onClick = { clipboard.setText(AnnotatedString(paymentUrl)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)); Text("Copy Link")
-                }
+                AppButton(onClick = { clipboard.setText(AnnotatedString(paymentUrl)) }, label = "Copy Link", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.ContentCopy)
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
             }
         }
@@ -2290,7 +2263,7 @@ fun EstimateSendScreen(
             }
 
             val hasRecipient = emailEntries.any { it.checked } || phoneEntries.any { it.checked }
-            Button(
+            AppButton(
                 onClick = {
                     sending = true
                     val sendEmail      = emailEntries.any { it.checked }
@@ -2301,13 +2274,12 @@ fun EstimateSendScreen(
                     android.util.Log.d("SendEstimate", "sending with emails: $checkedEmails phones: $checkedPhones")
                     vm.send(estimateId, sendSms, sendEmail, checkedEmails, checkedPhones)
                 },
+                label = "Send for Signature",
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = hasRecipient && !sending
-            ) {
-                if (sending) CircularProgressIndicator(Modifier.size(20.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Draw, null); Spacer(Modifier.width(8.dp)); Text("Send for Signature", fontWeight = FontWeight.Bold) }
-            }
+                enabled = hasRecipient && !sending,
+                loading = sending,
+                leadingIcon = Icons.Default.Draw
+            )
         }
     }
 }

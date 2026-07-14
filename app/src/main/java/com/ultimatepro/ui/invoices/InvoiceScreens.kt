@@ -264,10 +264,10 @@ fun InvoiceListScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Invoices", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            AppButton(
                 onClick = { showPicker = true },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("New Invoice") }
+                label = "New Invoice",
+                leadingIcon = Icons.Default.Add
             )
         }
     ) { padding ->
@@ -374,16 +374,12 @@ fun InvoiceDetailScreen(
             ModalBottomSheet(onDismissRequest = { showPaymentOptions = false }) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Collect Payment", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-                    Button(
+                    AppButton(
                         onClick = { showPaymentOptions = false; onPayment(i.id) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                    ) {
-                        Icon(Icons.Default.Payment, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Charge on site", fontWeight = FontWeight.SemiBold)
-                    }
+                        label = "Charge on site",
+                        leadingIcon = Icons.Default.Payment,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     // P2.41b duplicate-control removal: the sheet's "Send payment link" actually
                     // called onSend (send the WHOLE invoice), duplicating the body "Send Invoice"
                     // and bypassing the P2.41 pre-send picker. The canonical picker-backed
@@ -450,15 +446,19 @@ fun InvoiceDetailScreen(
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (i.status != "paid" && i.status != "void") {
-                                OutlinedButton(
+                                AppButton(
                                     onClick = { draft.clear(); draft.addAll(i.line_items.map { EditItem.from(it) }); editing = true },
-                                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)
-                                ) { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Edit items") }
+                                    label = "Edit items",
+                                    leadingIcon = Icons.Default.Edit,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
-                            OutlinedButton(
+                            AppButton(
                                 onClick = onAddItem,
-                                modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)
-                            ) { Icon(Icons.Default.Add, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Add Item") }
+                                label = "Add Item",
+                                leadingIcon = Icons.Default.Add,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
@@ -495,24 +495,24 @@ fun InvoiceDetailScreen(
                 item { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     when (i.status) {
                         "draft", "sent" -> {
-                            Button(onClick = { onSign(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Draw, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Get Signature") }
-                            OutlinedButton(onClick = { onSend(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Invoice") }
+                            AppButton(onClick = { onSign(i.id) }, label = "Get Signature", leadingIcon = Icons.Default.Draw, modifier = Modifier.fillMaxWidth())
+                            AppButton(onClick = { onSend(i.id) }, label = "Send Invoice", leadingIcon = Icons.Default.Send, modifier = Modifier.fillMaxWidth())
                         }
                         "signed" -> {
                             if (com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self"))
-                            Button(
+                            AppButton(
                                 onClick = { showPaymentOptions = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                            ) { Icon(Icons.Default.Payment, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Charge Payment", fontWeight = FontWeight.SemiBold) }
+                                label = "Charge Payment",
+                                leadingIcon = Icons.Default.Payment,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         "paid" -> {
-                            if (!i.receipt_sent) Button(onClick = { onReceipt(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Receipt") }
+                            if (!i.receipt_sent) AppButton(onClick = { onReceipt(i.id) }, label = "Send Receipt", leadingIcon = Icons.Default.Receipt, modifier = Modifier.fillMaxWidth())
                             else Card(colors = CardDefaults.cardColors(containerColor = AppColors.Green.copy(alpha = 0.1f)), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.CheckCircle, null, tint = AppColors.Green); Spacer(Modifier.width(8.dp)); Text("Payment complete — receipt sent", color = AppColors.Green, fontWeight = FontWeight.SemiBold) } }
                         }
                         "partial", "partially_paid" -> {
-                            Button(onClick = { onReceipt(i.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) { Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Partial Receipt") }
+                            AppButton(onClick = { onReceipt(i.id) }, label = "Send Partial Receipt", leadingIcon = Icons.Default.Receipt, modifier = Modifier.fillMaxWidth())
                         }
                     }
                     // P2.37: ScanPay payment link — available for ANY invoice with a
@@ -521,15 +521,14 @@ fun InvoiceDetailScreen(
                     if (i.status != "paid" && i.balance_due > 0 &&
                         com.ultimatepro.domain.model.canUi(role, perms, "payments_refunds", "edit_self")) {
                         val spLoading by vm.scanPayLoading.collectAsState()
-                        OutlinedButton(
+                        AppButton(
                             onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
+                            label = "Send Payment Link",
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            enabled = !spLoading
-                        ) {
-                            if (spLoading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                            else { Icon(Icons.Default.Link, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send Payment Link") }
-                        }
+                            enabled = !spLoading,
+                            loading = spLoading,
+                            leadingIcon = Icons.Default.Link
+                        )
                     }
                 } }
                 // Follow-up reminders status
@@ -658,8 +657,8 @@ private fun EditableInvoiceItemsCard(
                 style = MaterialTheme.typography.labelSmall, color = AppColors.Orange, modifier = Modifier.padding(top = 4.dp))
         }
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("Cancel") }
-            Button(onClick = onSave, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("Save changes") }
+            AppButton(onClick = onCancel, label = "Cancel", modifier = Modifier.weight(1f))
+            AppButton(onClick = onSave, label = "Save changes", modifier = Modifier.weight(1f))
         }
     }
 }
@@ -781,8 +780,8 @@ fun InvoiceSignScreen(
             Text("Sign Below", fontWeight = FontWeight.SemiBold)
             SignatureCanvas(strokes = strokes, currentStroke = currentStroke)
             val density = LocalDensity.current
-            Button(onClick = {
-                if (strokes.isEmpty()) return@Button
+            AppButton(onClick = {
+                if (strokes.isEmpty()) return@AppButton
                 signing = true
                 val w = with(density) { 380.dp.toPx().toInt() }; val h = with(density) { 200.dp.toPx().toInt() }
                 val bm = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -795,10 +794,7 @@ fun InvoiceSignScreen(
                     signing = false
                     if (success) onSigned()
                 }
-            }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp), enabled = agreed && strokes.isNotEmpty() && !signing) {
-                if (signing) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("Confirm & Sign", fontWeight = FontWeight.Bold) }
-            }
+            }, label = "Confirm & Sign", modifier = Modifier.fillMaxWidth().height(52.dp), enabled = agreed && strokes.isNotEmpty() && !signing, loading = signing, leadingIcon = Icons.Default.Check)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -903,37 +899,32 @@ fun PaymentScreen(
             val spLoading by vm.scanPayLoading.collectAsState()
 
             when (method) {
-                "scanpay_qr" -> Button(
+                "scanpay_qr" -> AppButton(
                     onClick = { vm.createScanPayQr(invoiceId, chargeAmount) },
+                    label = "Generate QR — ${formatMoney(chargeAmount)}",
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
                     enabled = !spLoading && chargeAmount > 0,
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                ) {
-                    if (spLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                    else { Icon(Icons.Default.QrCode, null); Spacer(Modifier.width(8.dp)); Text("Generate QR — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
-                }
-                "scanpay_link" -> Button(
+                    loading = spLoading,
+                    leadingIcon = Icons.Default.QrCode
+                )
+                "scanpay_link" -> AppButton(
                     onClick = { showLinkPicker = true },   // P2.41 #4: open the picker
+                    label = "Send Payment Link — ${formatMoney(chargeAmount)}",
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
                     enabled = !spLoading && chargeAmount > 0,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
-                ) {
-                    if (spLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                    else { Icon(Icons.Default.Link, null); Spacer(Modifier.width(8.dp)); Text("Send Payment Link — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
-                }
-                else -> Button(
+                    loading = spLoading,
+                    leadingIcon = Icons.Default.Link
+                )
+                else -> AppButton(
                     onClick = { paying = true; vm.recordPayment(invoiceId, method, chargeAmount, notes.ifBlank { null },
                         onNeedsConfirm = { paying = false; showOverpay = true },
                         onDone = { paying = false; onPaid(invoiceId) }) },
+                    label = "Record Payment — ${formatMoney(chargeAmount)}",
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !paying && chargeAmount > 0
-                ) {
-                    if (paying) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                    else { Icon(Icons.Default.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("Record Payment — ${formatMoney(chargeAmount)}", fontWeight = FontWeight.Bold) }
-                }
+                    enabled = !paying && chargeAmount > 0,
+                    loading = paying,
+                    leadingIcon = Icons.Default.CheckCircle
+                )
             }
 
             // P2.27 #3: overpayment confirm — payment exceeds the remaining balance.
@@ -1065,15 +1056,12 @@ private fun ScanPayQrDialog(
                     Text("Waiting for payment…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                OutlinedButton(
+                AppButton(
                     onClick = { clipboard.setText(AnnotatedString(paymentUrl)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Copy Link", style = MaterialTheme.typography.bodySmall)
-                }
+                    label = "Copy Link",
+                    leadingIcon = Icons.Default.ContentCopy,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                     Text("Cancel")
@@ -1350,22 +1338,21 @@ fun ReceiptScreen(
             }
 
             val hasRecipient = emailEntries.any { it.checked } || phoneEntries.any { it.checked }
-            Button(
+            AppButton(
                 onClick = {
                     sending = true
                     val checkedEmails = emailEntries.filter { it.checked }.map { it.value }
                     val checkedPhones = phoneEntries.filter { it.checked }.map { it.value }
                     vm.sendReceipt(invoiceId, checkedPhones.isNotEmpty(), checkedEmails.isNotEmpty(), checkedEmails, checkedPhones, sendReviewRequest && hasActivePlatform) { sending = false; onDone(inv?.job_id) }
                 },
+                label = "Send Receipt",
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = hasRecipient && !sending
-            ) {
-                if (sending) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Send, null); Spacer(Modifier.width(8.dp)); Text("Send Receipt", fontWeight = FontWeight.Bold) }
-            }
+                enabled = hasRecipient && !sending,
+                loading = sending,
+                leadingIcon = Icons.Default.Send
+            )
 
-            OutlinedButton(onClick = { onDone(inv?.job_id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text("Done") }
+            AppButton(onClick = { onDone(inv?.job_id) }, label = "Done", modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -1556,7 +1543,7 @@ fun InvoiceSendScreen(
             }
 
             val hasRecipient = emailEntries.any { it.checked } || phoneEntries.any { it.checked }
-            Button(
+            AppButton(
                 onClick = {
                     sending = true
                     val sendEmail     = emailEntries.any { it.checked }
@@ -1565,13 +1552,12 @@ fun InvoiceSendScreen(
                     val checkedPhones = phoneEntries.filter { it.checked }.map { it.value }
                     vm.send(invoiceId, sendSms, sendEmail, checkedEmails, checkedPhones)
                 },
+                label = "Send Invoice",
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = hasRecipient && !sending
-            ) {
-                if (sending) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else { Icon(Icons.Default.Send, null); Spacer(Modifier.width(8.dp)); Text("Send Invoice", fontWeight = FontWeight.Bold) }
-            }
+                enabled = hasRecipient && !sending,
+                loading = sending,
+                leadingIcon = Icons.Default.Send
+            )
         }
     }
 }

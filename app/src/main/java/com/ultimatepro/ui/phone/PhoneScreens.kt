@@ -486,28 +486,13 @@ private fun SecondChanceCard(
             if (lead.status == "new" || lead.status == "assigned") {
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Button(onClick = onCallBack, modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)) {
-                        Icon(Icons.Default.Phone, null, Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Call", fontSize = 12.sp)
-                    }
-                    Button(onClick = onSendSms, modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)) {
-                        Icon(Icons.Default.Sms, null, Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("SMS", fontSize = 12.sp)
-                    }
-                    OutlinedButton(onClick = onBook, modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)) {
-                        Text("Booked", fontSize = 12.sp)
-                    }
-                    OutlinedButton(onClick = onLost, modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)) {
-                        Text("Lost", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                    }
+                    AppButton(onClick = onCallBack, label = "Call", modifier = Modifier.weight(1f),
+                        leadingIcon = Icons.Default.Phone)
+                    AppButton(onClick = onSendSms, label = "SMS", modifier = Modifier.weight(1f),
+                        leadingIcon = Icons.Default.Sms)
+                    AppButton(onClick = onBook, label = "Booked", modifier = Modifier.weight(1f))
+                    AppButton(onClick = onLost, label = "Lost", modifier = Modifier.weight(1f),
+                        labelColor = AppColors.Red)
                 }
             }
         }
@@ -794,15 +779,12 @@ fun SmsMessagesList(
             }
         }
         if (onOpenThread != null && conversationId != null) {
-            Button(
+            AppButton(
                 onClick  = { onOpenThread(conversationId) },
+                label    = "Open Conversation",
                 modifier = Modifier.fillMaxWidth().padding(12.dp).height(48.dp),
-                shape    = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Sms, null)
-                Spacer(Modifier.width(8.dp))
-                Text("Open Conversation", fontWeight = FontWeight.Bold)
-            }
+                leadingIcon = Icons.Default.Sms
+            )
         }
     }
 }

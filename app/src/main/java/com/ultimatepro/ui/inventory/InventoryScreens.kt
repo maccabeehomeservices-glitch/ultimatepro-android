@@ -25,6 +25,7 @@ import com.ultimatepro.domain.model.InventoryItem
 import com.ultimatepro.domain.model.PricebookItem
 import com.ultimatepro.domain.model.RestockRequest
 import com.ultimatepro.domain.model.Truck
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
@@ -129,7 +130,7 @@ private fun InventoryDisabledView(modifier: Modifier = Modifier, onEnable: () ->
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Button(onClick = onEnable, modifier = Modifier.fillMaxWidth()) { Text("Enable Inventory") }
+                AppButton(onClick = onEnable, label = "Enable Inventory", modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -450,16 +451,18 @@ fun TruckStockScreen(
                 Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = { showSendItems = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.MoveToInbox, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Send Items")
-                }
-                OutlinedButton(onClick = onRestockRequests, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Assignment, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Requests")
-                }
+                AppButton(
+                    onClick = { showSendItems = true },
+                    label = "Send Items",
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.MoveToInbox
+                )
+                AppButton(
+                    onClick = onRestockRequests,
+                    label = "Requests",
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.Assignment
+                )
             }
         }
     }
@@ -709,7 +712,7 @@ fun RestockRequestDetailScreen(
             }
 
             if (request.status == "pending") {
-                Button(
+                AppButton(
                     onClick = {
                         val items = request.items.map { item ->
                             mapOf(
@@ -719,8 +722,9 @@ fun RestockRequestDetailScreen(
                         }
                         vm.fulfillRestockRequest(requestId, items) { onBack() }
                     },
+                    label = "Fulfill Request",
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                ) { Text("Fulfill Request") }
+                )
             }
             Spacer(Modifier.height(32.dp))
         }

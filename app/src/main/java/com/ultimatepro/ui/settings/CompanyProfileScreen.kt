@@ -32,6 +32,7 @@ import coil.compose.AsyncImage
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.Company
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -327,25 +328,18 @@ fun CompanyProfileScreen(
                 Spacer(Modifier.width(16.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
+                    AppButton(
                         onClick = { photoLauncher.launch("image/*") },
-                        enabled = !s.uploading,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text(if (s.uploading) "Uploading..." else "Upload Logo")
-                    }
+                        label = if (s.uploading) "Uploading..." else "Upload Logo",
+                        enabled = !s.uploading
+                    )
 
                     if (s.logoUrl.isNotEmpty()) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = { vm.removeLogo() },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(44.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("Remove Logo")
-                        }
+                            label = "Remove Logo",
+                            labelColor = AppColors.Red
+                        )
                     }
                 }
             }
@@ -403,23 +397,13 @@ fun CompanyProfileScreen(
             Spacer(Modifier.height(8.dp))
 
             // ── SAVE BUTTON ─────────────────────────────────────────────
-            Button(
+            AppButton(
                 onClick = { vm.save() },
+                label = "Save Changes",
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = !s.saving,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Blue)
-            ) {
-                if (s.saving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Save Changes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
+                loading = s.saving
+            )
 
             Spacer(Modifier.height(32.dp))
         }

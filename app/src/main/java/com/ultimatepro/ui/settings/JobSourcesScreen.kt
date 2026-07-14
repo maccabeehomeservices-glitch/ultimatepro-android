@@ -25,6 +25,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.AdChannel
 import com.ultimatepro.domain.model.CommissionRule
 import com.ultimatepro.domain.model.JobSource
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.AppColors
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -443,15 +444,12 @@ private fun AdChannelsTab(
         item {
             Spacer(Modifier.height(12.dp))
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                OutlinedButton(
+                AppButton(
                     onClick = onAddCustom,
+                    label = "Add Custom Channel",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Add Custom Channel")
-                }
+                    leadingIcon = Icons.Default.Add
+                )
             }
         }
     }

@@ -922,7 +922,7 @@ fun JobListScreen(onJob: (String) -> Unit, onNewJob: () -> Unit, vm: JobViewMode
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = onNewJob, icon = { Icon(Icons.Default.Add, null) }, text = { Text("New Job") })
+            AppButton(onClick = onNewJob, label = "New Job", leadingIcon = Icons.Default.Add)
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).nestedScroll(pullState.nestedScrollConnection)) {
@@ -1148,17 +1148,9 @@ private fun CustomDateRangeDialog(
         title = { Text("Custom Date Range") },
         text = {
             Column {
-                OutlinedButton(onClick = { pickerTarget = "from" }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("From: ${fromDate ?: "Pick start date"}")
-                }
+                AppButton(onClick = { pickerTarget = "from" }, label = "From: ${fromDate ?: "Pick start date"}", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.CalendarMonth)
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { pickerTarget = "to" }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("To: ${toDate ?: "Pick end date"}")
-                }
+                AppButton(onClick = { pickerTarget = "to" }, label = "To: ${toDate ?: "Pick end date"}", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.CalendarMonth)
             }
         },
         confirmButton = {
@@ -1989,26 +1981,19 @@ fun JobDetailScreen(
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // Send To — unified: roster tech, app user, partner
                     if (job.status !in listOf("deleted", "cancelled")) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = { vm.loadSendToRecipients(job); showSendToDialog = true },
+                            label = "Send To",
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.Share, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Send To")
-                        }
+                            leadingIcon = Icons.Default.Share
+                        )
                     }
                     if (jobEstimates.isEmpty()) {
                         // No estimates yet — single create button
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onCreateEstimate, Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Default.Description, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Create Estimate")
-                            }
+                            AppButton(onClick = onCreateEstimate, label = "Create Estimate", modifier = Modifier.weight(1f), leadingIcon = Icons.Default.Description)
                             if (jobInvoice != null) {
-                                OutlinedButton(onClick = { onViewInvoice(jobInvoice.id) }, Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
-                                    Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("View Invoice")
-                                }
+                                AppButton(onClick = { onViewInvoice(jobInvoice.id) }, label = "View Invoice", modifier = Modifier.weight(1f), leadingIcon = Icons.Default.Receipt)
                             }
                         }
                     } else {
@@ -2058,24 +2043,19 @@ fun JobDetailScreen(
                                 }
                             }
                             if (jobInvoice != null) {
-                                OutlinedButton(onClick = { onViewInvoice(jobInvoice.id) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                                    Icon(Icons.Default.Receipt, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("View Invoice")
-                                }
+                                AppButton(onClick = { onViewInvoice(jobInvoice.id) }, label = "View Invoice", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Receipt)
                             }
                         }
                     }
                     // Add to Invoice button
                     if (job.status !in listOf("deleted", "cancelled")) {
                         if (jobInvoice == null) {
-                            OutlinedButton(
+                            AppButton(
                                 onClick = { vm.createJobInvoice(jobId, job.customer_id) },
+                                label = "Add to Invoice",
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.Receipt, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Add to Invoice")
-                            }
+                                leadingIcon = Icons.Default.Receipt
+                            )
                         }
                     }
                 }
@@ -2191,27 +2171,19 @@ fun JobDetailScreen(
             if (job.status !in listOf("deleted", "cancelled")) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = { showAddPartDialog = true },
+                            label = "Add Part",
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.Add, null, Modifier.size(15.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add Part", style = MaterialTheme.typography.labelMedium)
-                        }
+                            leadingIcon = Icons.Default.Add
+                        )
                         if (jobInvoice != null && jobInvoice.status != "paid") {
-                            OutlinedButton(
+                            AppButton(
                                 onClick = { onPayment(jobInvoice.id) },
+                                label = "Charge Payment",
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, AppColors.Green),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Green)
-                            ) {
-                                Icon(Icons.Default.Payment, null, Modifier.size(15.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Charge Payment", style = MaterialTheme.typography.labelMedium)
-                            }
+                                leadingIcon = Icons.Default.Payment
+                            )
                         }
                     }
                 }
@@ -2220,27 +2192,23 @@ fun JobDetailScreen(
             if (job.status !in listOf("deleted", "cancelled", "completed")) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = { jobInvoice?.let { onViewInvoice(it.id) } },
+                            label = "Send Receipt",
                             modifier = Modifier.weight(1f).height(48.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            enabled = jobInvoice != null,
-                            border = BorderStroke(1.dp, if (jobInvoice != null) AppColors.Blue else MaterialTheme.colorScheme.outline),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Blue)
-                        ) { Text("Send Receipt", style = MaterialTheme.typography.labelMedium) }
-                        OutlinedButton(
+                            enabled = jobInvoice != null
+                        )
+                        AppButton(
                             onClick = { vm.updateStatus(jobId, "cancelled") },
+                            label = "Cancel Job",
                             modifier = Modifier.weight(1f).height(48.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, AppColors.Red),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Red)
-                        ) { Text("Cancel Job", style = MaterialTheme.typography.labelMedium) }
-                        Button(
+                            labelColor = AppColors.Red
+                        )
+                        AppButton(
                             onClick = onComplete,
-                            modifier = Modifier.weight(1f).height(48.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                        ) { Text("Completed", style = MaterialTheme.typography.labelMedium) }
+                            label = "Completed",
+                            modifier = Modifier.weight(1f).height(48.dp)
+                        )
                     }
                 }
             }
@@ -2919,11 +2887,11 @@ private fun TechPermissionsSheet(
             }
         }
         Spacer(Modifier.height(12.dp))
-        Button(
+        AppButton(
             onClick  = { onSave(perms.toMap()) },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            shape    = RoundedCornerShape(10.dp)
-        ) { Text("Save Permissions") }
+            label = "Save Permissions",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+        )
         Spacer(Modifier.height(32.dp))
     }
 }
@@ -2986,12 +2954,7 @@ private fun CompletionDetailsSheet(
             }
             if (completion.status == "pending" && isSender && isPartnerJob) {
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onConfirm, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)) {
-                    Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Confirm Completion")
-                }
+                AppButton(onClick = onConfirm, label = "Confirm Completion", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.CheckCircle)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -3236,7 +3199,7 @@ fun CompleteJobScreen(
                 Text(it, color = AppColors.Red, modifier = Modifier.padding(horizontal = 20.dp),
                     style = MaterialTheme.typography.bodySmall)
             }
-            Button(
+            AppButton(
                 onClick = {
                     val body = buildMap<String, Any?> {
                         if (isPartnerJob) {
@@ -3250,16 +3213,11 @@ fun CompleteJobScreen(
                     }
                     vm.complete(jobId, body) { onBack() }
                 },
+                label = if (isPartnerJob) "Complete Job & Submit Split" else "Mark as Complete",
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                shape    = RoundedCornerShape(10.dp),
-                enabled  = !state.saving
-            ) {
-                if (state.saving) {
-                    CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(if (isPartnerJob) "Complete Job & Submit Split" else "Mark as Complete")
-            }
+                enabled  = !state.saving,
+                loading  = state.saving
+            )
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -3937,39 +3895,30 @@ fun JobFormScreen(onBack: () -> Unit, onSaved: () -> Unit, editJobId: String? = 
 
             // ── Action Buttons ────────────────────────────────────────────
             if (isEdit) {
-                Button(
+                AppButton(
                     onClick = { doSave() },
+                    label = "Save Changes",
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     enabled = !state.isParsing
-                ) {
-                    Text("Save Changes", fontWeight = FontWeight.Bold)
-                }
+                )
             } else {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedButton(
+                AppButton(
                     onClick = { doSave() },
+                    label = "Save Job",
                     modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     enabled = !state.isParsing
-                ) {
-                    Text("Save Job", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                }
+                )
                 if (isNonSelf) {
-                    Button(
+                    AppButton(
                         onClick = { doSave(sendToTech = true) },
+                        label = "Save & Send",
                         modifier = Modifier.weight(1f).height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         enabled = !state.isParsing
-                    ) {
-                        Text("Save & Send", fontWeight = FontWeight.Bold)
-                    }
+                    )
                 }
             }
             }
@@ -4247,47 +4196,43 @@ fun DuplicateCustomerSheet(
                 Spacer(Modifier.height(8.dp))
 
                 // ── Option 1: Returning Customer ────────────────────────────
-                Button(
+                AppButton(
                     onClick = onReturningCustomer,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Blue)
-                ) { Text("Returning Customer", fontWeight = FontWeight.SemiBold) }
+                    label = "Returning Customer",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text("Use existing record, book a new job", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
                 // ── Option 2: Go-Back / Warranty ────────────────────────────
-                Button(
+                AppButton(
                     onClick = { if (info.recentJobs.isEmpty()) onGoBack(null) else step = "go_back" },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Orange)
-                ) { Text("Go-Back / Warranty", fontWeight = FontWeight.SemiBold) }
+                    label = "Go-Back / Warranty",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text("Issue with a previous job, link to original", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
                 // ── Option 3: Follow-Up ─────────────────────────────────────
-                Button(
+                AppButton(
                     onClick = { if (info.recentJobs.isEmpty()) onFollowUp(null) else step = "follow_up" },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple)
-                ) { Text("Follow-Up", fontWeight = FontWeight.SemiBold) }
+                    label = "Follow-Up",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text("Continuation of a previous visit, link to original", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
                 // ── Option 4: Create New (P2.21) — brand-new customer from parsed fields ──
-                Button(
+                AppButton(
                     onClick = onCreateNew,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Green)
-                ) { Text("Create New Customer", fontWeight = FontWeight.SemiBold) }
+                    label = "Create New Customer",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text("Not the same person — create a separate customer from the entered name/phone", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
 
                 // ── Option 5: Cancel ────────────────────────────────────────
-                OutlinedButton(
+                AppButton(
                     onClick = onCancel,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp)
-                ) { Text("Cancel — Clear All Fields") }
+                    label = "Cancel — Clear All Fields",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text("Dismiss and start over", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
             }
         } else {
@@ -4333,12 +4278,11 @@ fun DuplicateCustomerSheet(
                         }
                     }
                 }
-                Button(
+                AppButton(
                     onClick = { onConfirm(selectedJobId) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isGoBack) AppColors.Orange else AppColors.Purple)
-                ) { Text(if (selectedJobId != null) "Link & Save" else "Skip — Save Without Link", fontWeight = FontWeight.SemiBold) }
+                    label = if (selectedJobId != null) "Link & Save" else "Skip — Save Without Link",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 TextButton(onClick = { step = null; selectedJobId = null }, modifier = Modifier.fillMaxWidth()) {
                     Text("Back")
                 }

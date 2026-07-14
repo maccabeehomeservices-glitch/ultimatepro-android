@@ -17,6 +17,7 @@ import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.JobyRule
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppSwitch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -152,7 +153,7 @@ fun AilotScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(state.error!!, color = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = { vm.load() }) { Text("Retry") }
+                    AppButton(onClick = { vm.load() }, label = "Retry")
                 }
             }
             state.rules.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {

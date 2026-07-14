@@ -28,6 +28,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.BookingSettings
 import com.ultimatepro.domain.model.ServiceArea
 import com.ultimatepro.domain.model.TimeWindow
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.AppSwitch
 import com.ultimatepro.ui.common.CRMCard
@@ -263,15 +264,12 @@ fun OnlineBookingSettingsScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = { clipboard.setText(AnnotatedString(bookingUrl)) },
+                            label = "Copy",
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Copy")
-                        }
+                            leadingIcon = Icons.Default.ContentCopy
+                        )
                     }
                 }
             }
@@ -417,19 +415,16 @@ fun OnlineBookingSettingsScreen(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
+                        AppButton(
                             onClick = {
                                 editingServiceArea      = null
                                 editingServiceAreaIndex = -1
                                 showAddServiceAreaDialog = true
                             },
+                            label = "Add Service Area",
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Add, null, Modifier.size(16.dp), tint = AppColors.Blue)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Add Service Area", color = AppColors.Blue)
-                        }
+                            leadingIcon = Icons.Default.Add
+                        )
                     }
 
                     // ── Services Offered ───────────────────────────────────
@@ -589,7 +584,7 @@ fun OnlineBookingSettingsScreen(
             }
 
             // ── Save button ────────────────────────────────────────────────
-            Button(
+            AppButton(
                 onClick = {
                     vm.saveSettings(
                         enabled              = enabled,
@@ -611,17 +606,12 @@ fun OnlineBookingSettingsScreen(
                         followupMethod       = followupMethod
                     )
                 },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = !saving
-            ) {
-                if (saving) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else {
-                    Icon(Icons.Default.Save, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Save Settings", fontWeight = FontWeight.Bold)
-                }
-            }
+                label       = "Save Settings",
+                modifier    = Modifier.fillMaxWidth().height(52.dp),
+                enabled     = !saving,
+                loading     = saving,
+                leadingIcon = Icons.Default.Save
+            )
 
             Spacer(Modifier.height(24.dp))
         }

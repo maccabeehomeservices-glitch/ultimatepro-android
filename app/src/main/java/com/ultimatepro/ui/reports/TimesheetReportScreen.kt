@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ultimatepro.domain.model.TimesheetSummary
 import com.ultimatepro.domain.model.Timesheet
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.LoadingView
@@ -139,25 +140,19 @@ fun TimesheetReportScreen(
             item {
                 SectionLabel("DATE RANGE")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick   = { showStartPicker = true },
-                        modifier  = Modifier.weight(1f),
-                        shape     = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.CalendarToday, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(startDate, style = MaterialTheme.typography.bodySmall)
-                    }
+                    AppButton(
+                        onClick     = { showStartPicker = true },
+                        label       = startDate,
+                        modifier    = Modifier.weight(1f),
+                        leadingIcon = Icons.Default.CalendarToday
+                    )
                     Text("–", modifier = Modifier.align(Alignment.CenterVertically))
-                    OutlinedButton(
-                        onClick   = { showEndPicker = true },
-                        modifier  = Modifier.weight(1f),
-                        shape     = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.CalendarToday, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(endDate, style = MaterialTheme.typography.bodySmall)
-                    }
+                    AppButton(
+                        onClick     = { showEndPicker = true },
+                        label       = endDate,
+                        modifier    = Modifier.weight(1f),
+                        leadingIcon = Icons.Default.CalendarToday
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
                 // Tech filter
@@ -201,20 +196,14 @@ fun TimesheetReportScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 // Run button
-                Button(
-                    onClick   = { vm.loadReport(startDate, endDate, selectedTechId) },
-                    modifier  = Modifier.fillMaxWidth().height(48.dp),
-                    shape     = RoundedCornerShape(12.dp),
-                    enabled   = !reportLoading
-                ) {
-                    if (reportLoading) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Assessment, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Run Report", fontWeight = FontWeight.Bold)
-                    }
-                }
+                AppButton(
+                    onClick     = { vm.loadReport(startDate, endDate, selectedTechId) },
+                    label       = "Run Report",
+                    modifier    = Modifier.fillMaxWidth().height(48.dp),
+                    enabled     = !reportLoading,
+                    loading     = reportLoading,
+                    leadingIcon = Icons.Default.Assessment
+                )
             }
 
             // ── Summary cards ─────────────────────────────────────────────

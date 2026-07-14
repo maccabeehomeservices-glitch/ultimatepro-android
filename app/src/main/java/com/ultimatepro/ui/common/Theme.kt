@@ -71,6 +71,9 @@ object AppColors {
     val BrassDeep       = Color(0xFF8A6A3B)
     val BrassBright     = Color(0xFFE7CE99)
     val BlueTextOnPearl = Color(0xFF1E4E8C)
+    // P3.1c component language: pearl-button inner ring + the shine-hairline highlight stop.
+    val BrassRing       = Color(0xFFB08D57)  // 2.5dp inner ring, flush inside the blue outer border
+    val BrassShineHi    = Color(0xFFF0D9A6)  // center highlight of the shine gradient (Deep→Border→Hi→Border→Deep)
 
     fun jobStatus(status: String?): Color = when (status) {
         "scheduled"   -> StatusScheduled

@@ -23,6 +23,7 @@ import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.QboStatus
 import com.ultimatepro.domain.model.QboSyncResult
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -241,24 +242,14 @@ fun QuickBooksScreen(
 
                     if (status?.connected == true) {
                         // Sync All button
-                        Button(
-                            onClick = { vm.syncAll() },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            enabled = !syncing && !loading,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (syncing) {
-                                CircularProgressIndicator(
-                                    Modifier.size(18.dp), strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            } else {
-                                Icon(Icons.Default.Sync, null, Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text(if (syncing) "Syncing..." else "Sync All to QuickBooks")
-                        }
+                        AppButton(
+                            onClick     = { vm.syncAll() },
+                            label       = if (syncing) "Syncing..." else "Sync All to QuickBooks",
+                            modifier    = Modifier.fillMaxWidth().height(48.dp),
+                            enabled     = !syncing && !loading,
+                            loading     = syncing,
+                            leadingIcon = Icons.Default.Sync
+                        )
 
                         // Sync results
                         syncResults?.let { results ->
@@ -295,36 +286,26 @@ fun QuickBooksScreen(
                                 "Invoices"  to { vm.syncInvoices() },
                                 "Payments"  to { vm.syncPayments() },
                             ).forEach { (label, action) ->
-                                OutlinedButton(
+                                AppButton(
                                     onClick  = { action() },
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    enabled  = !syncing && !loading,
-                                    shape    = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text(label, style = MaterialTheme.typography.labelSmall)
-                                }
+                                    label    = label,
+                                    modifier = Modifier.weight(1f),
+                                    enabled  = !syncing && !loading
+                                )
                             }
                         }
 
                         Spacer(Modifier.height(8.dp))
 
                         // Disconnect button
-                        OutlinedButton(
+                        AppButton(
                             onClick  = { showDisconnectDialog = true },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            label    = "Disconnect QuickBooks",
+                            modifier = Modifier.fillMaxWidth(),
                             enabled  = !loading && !syncing,
-                            shape    = RoundedCornerShape(12.dp),
-                            colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            border   = ButtonDefaults.outlinedButtonBorder.copy(
-                                brush = androidx.compose.ui.graphics.SolidColor(
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                                )
-                            )
-                        ) {
-                            Icon(Icons.Default.LinkOff, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Disconnect QuickBooks")
-                        }
+                            labelColor = AppColors.Red,
+                            leadingIcon = Icons.Default.LinkOff
+                        )
                     } else {
                         // Connect button
                         Button(

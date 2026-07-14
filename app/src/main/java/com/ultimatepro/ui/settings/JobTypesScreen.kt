@@ -2,7 +2,6 @@ package com.ultimatepro.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,6 +18,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
+import com.ultimatepro.ui.common.AppButton
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -167,8 +167,8 @@ fun JobTypesScreen(onBack: () -> Unit, vm: JobTypesViewModel = hiltViewModel()) 
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 )
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = { vm.addType(custom); custom = "" }, enabled = custom.isNotBlank() && !s.saving,
-                    shape = RoundedCornerShape(10.dp)) { Text("Add") }
+                AppButton(onClick = { vm.addType(custom); custom = "" }, label = "Add",
+                    enabled = custom.isNotBlank() && !s.saving)
             }
             Spacer(Modifier.height(24.dp))
         }

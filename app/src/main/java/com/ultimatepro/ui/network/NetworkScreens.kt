@@ -29,6 +29,7 @@ import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.CompanySearchResult
 import com.ultimatepro.domain.model.ContractorAgreement
 import com.ultimatepro.domain.model.ContractorConnection
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.CRMCard
 import com.ultimatepro.ui.common.ErrorView
@@ -412,11 +413,11 @@ fun NetworkListScreen(
                             Text("Connect with other contractors to share jobs",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Button(onClick = { showFind = true }) {
-                                Icon(Icons.Default.PersonAdd, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Find Contractor")
-                            }
+                            AppButton(
+                                onClick = { showFind = true },
+                                label = "Find Contractor",
+                                leadingIcon = Icons.Default.PersonAdd
+                            )
                         }
                     }
                 } else {
@@ -546,30 +547,27 @@ fun NetworkDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (c.status in listOf("active", "paused")) {
-                                OutlinedButton(
+                                AppButton(
                                     onClick = { vm.pauseConnection(connectionId) },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        if (c.status == "active") Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        null, Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(if (c.status == "active") "Pause Connection" else "Resume Connection")
-                                }
+                                    label = if (c.status == "active") "Pause Connection" else "Resume Connection",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    leadingIcon = if (c.status == "active") Icons.Default.Pause else Icons.Default.PlayArrow
+                                )
                             }
                             if (c.status == "pending" && c.invitedBy != null) {
                                 // Show accept/decline only for the non-inviting party (server enforces this too)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(
+                                    AppButton(
                                         onClick  = { vm.respondConnection(connectionId, "decline") },
+                                        label    = "Decline",
                                         modifier = Modifier.weight(1f),
-                                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Red)
-                                    ) { Text("Decline") }
-                                    Button(
+                                        labelColor = AppColors.Red
+                                    )
+                                    AppButton(
                                         onClick  = { vm.respondConnection(connectionId, "accept") },
+                                        label    = "Accept",
                                         modifier = Modifier.weight(1f)
-                                    ) { Text("Accept") }
+                                    )
                                 }
                             }
                         }
@@ -616,19 +614,22 @@ fun NetworkDetailScreen(
                                             style = MaterialTheme.typography.bodySmall)
                                     }
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedButton(
+                                        AppButton(
                                             onClick  = { showCounter = pendingAgreement },
+                                            label    = "Counter",
                                             modifier = Modifier.weight(1f)
-                                        ) { Text("Counter") }
-                                        OutlinedButton(
+                                        )
+                                        AppButton(
                                             onClick = { vm.respondAgreement(pendingAgreement.id, connectionId, "decline") },
+                                            label = "Decline",
                                             modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Red)
-                                        ) { Text("Decline") }
-                                        Button(
+                                            labelColor = AppColors.Red
+                                        )
+                                        AppButton(
                                             onClick = { vm.respondAgreement(pendingAgreement.id, connectionId, "accept") },
+                                            label = "Accept",
                                             modifier = Modifier.weight(1f)
-                                        ) { Text("Accept") }
+                                        )
                                     }
                                 }
                                 else -> Text("No active agreement. Propose terms to start sharing jobs.",
@@ -657,14 +658,12 @@ fun NetworkDetailScreen(
 
                 // ── Partner Reports button ────────────────────────────
                 item {
-                    Button(
+                    AppButton(
                         onClick  = onReport,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Assessment, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Partner Reports")
-                    }
+                        label    = "Partner Reports",
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = Icons.Default.Assessment
+                    )
                 }
             }
         }
@@ -792,7 +791,7 @@ fun AgreementProposalSheet(
                 modifier      = Modifier.fillMaxWidth()
             )
 
-            Button(
+            AppButton(
                 onClick = {
                     if (valid) {
                         if (counterTo != null) {
@@ -817,11 +816,10 @@ fun AgreementProposalSheet(
                         }
                     }
                 },
+                label = if (counterTo != null) "Send Counter-Proposal" else "Send Proposal",
                 enabled  = valid,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (counterTo != null) "Send Counter-Proposal" else "Send Proposal")
-            }
+            )
         }
     }
 }
@@ -916,7 +914,7 @@ fun FindContractorSheet(
                                     color = AppColors.Blue)
                             }
                         }
-                        Button(
+                        AppButton(
                             onClick  = {
                                 // Prefer UCM ID (globally unique); fall back to the query that found this result
                                 val (sv, st) = if (result.ultimatecrmId != null)
@@ -925,8 +923,9 @@ fun FindContractorSheet(
                                     searchQuery to searchType
                                 vm.inviteConnection(sv, st) { vm.clearSearch(); onDismiss() }
                             },
+                            label    = "Connect",
                             enabled  = !loading
-                        ) { Text("Connect") }
+                        )
                     }
                 }
             }
@@ -990,10 +989,10 @@ fun PartnerReportScreen(
         },
         floatingActionButton = {
             if (report != null) {
-                ExtendedFloatingActionButton(
+                AppButton(
                     onClick = { showSend = true },
-                    icon    = { Icon(Icons.Default.Send, null) },
-                    text    = { Text("Send Report") }
+                    label   = "Send Report",
+                    leadingIcon = Icons.Default.Send
                 )
             }
         },
@@ -1048,21 +1047,13 @@ fun PartnerReportScreen(
                                 modifier      = Modifier.weight(1f).clickable { showToPicker = true }
                             )
                         }
-                        Button(
+                        AppButton(
                             onClick  = { vm.loadReport(connectionId, dateFrom.ifBlank { null }, dateTo.ifBlank { null }) },
+                            label    = "Load Report",
                             modifier = Modifier.fillMaxWidth(),
-                            enabled  = !reportLoading
-                        ) {
-                            if (reportLoading) {
-                                CircularProgressIndicator(
-                                    modifier    = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color       = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text("Load Report")
-                        }
+                            enabled  = !reportLoading,
+                            loading  = reportLoading
+                        )
                     }
                 }
             }
@@ -1272,7 +1263,7 @@ fun SendReportSheet(
                 modifier      = Modifier.fillMaxWidth()
             )
 
-            Button(
+            AppButton(
                 onClick = {
                     vm.sendReport(
                         connectionId   = connectionId,
@@ -1282,21 +1273,12 @@ fun SendReportSheet(
                         onDone         = onDismiss
                     )
                 },
-                enabled  = !sending,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (sending) {
-                    CircularProgressIndicator(
-                        modifier    = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color       = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Icon(Icons.Default.Send, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Send Report")
-            }
+                label       = "Send Report",
+                modifier    = Modifier.fillMaxWidth(),
+                enabled     = !sending,
+                loading     = sending,
+                leadingIcon = Icons.Default.Send
+            )
         }
     }
 }

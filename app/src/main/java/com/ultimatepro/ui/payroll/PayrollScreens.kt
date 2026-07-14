@@ -419,18 +419,10 @@ fun PayrollScreen(
             // ── Quick-access row ────────────────────────────────────────
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onSimulator, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Default.Calculate, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Simulator", style = MaterialTheme.typography.bodySmall)
-                }
-                OutlinedButton(onClick = onReimbursements, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Default.Receipt, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Reimburse", style = MaterialTheme.typography.bodySmall)
-                }
+                AppButton(onClick = onSimulator, label = "Simulator", modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.Calculate)
+                AppButton(onClick = onReimbursements, label = "Reimburse", modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.Receipt)
             }
 
             TabRow(selectedTabIndex = tab) {
@@ -599,27 +591,12 @@ private fun TechPayCard(tech: TechPaySummary, onDetail: () -> Unit, onSettings: 
 
             // Action buttons
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = onDetail, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                    Icon(Icons.Default.OpenInNew, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Full Report", fontSize = 12.sp)
-                }
-                OutlinedButton(onClick = { showBonus = true }, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                    Icon(Icons.Default.Add, null, Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Bonus", fontSize = 12.sp)
-                }
-                OutlinedButton(onClick = { showDeduct = true }, modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                    Icon(Icons.Default.Remove, null, Modifier.size(14.dp), tint = AppColors.Red)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Deduct", fontSize = 12.sp, color = AppColors.Red)
-                }
+                AppButton(onClick = onDetail, label = "Full Report", modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.OpenInNew)
+                AppButton(onClick = { showBonus = true }, label = "Bonus", modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.Add)
+                AppButton(onClick = { showDeduct = true }, label = "Deduct", modifier = Modifier.weight(1f),
+                    leadingIcon = Icons.Default.Remove, labelColor = AppColors.Red)
             }
         }
     }

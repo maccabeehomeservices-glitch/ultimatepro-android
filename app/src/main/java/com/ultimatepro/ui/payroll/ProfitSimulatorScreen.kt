@@ -217,20 +217,14 @@ fun ProfitSimulatorScreen(
             )
 
             // ── Calculate button ─────────────────────────────────────────
-            Button(
-                onClick  = { vm.simulate() },
-                enabled  = state.jobTotal.toDoubleOrNull() != null && !state.loading,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape    = RoundedCornerShape(12.dp)
-            ) {
-                if (state.loading) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Default.Calculate, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Calculate Split", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                }
-            }
+            AppButton(
+                onClick     = { vm.simulate() },
+                label       = "Calculate Split",
+                modifier    = Modifier.fillMaxWidth().height(52.dp),
+                enabled     = state.jobTotal.toDoubleOrNull() != null && !state.loading,
+                loading     = state.loading,
+                leadingIcon = Icons.Default.Calculate
+            )
 
             // ── Results ──────────────────────────────────────────────────
             AnimatedVisibility(visible = state.result != null) {

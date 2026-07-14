@@ -17,6 +17,7 @@ import androidx.lifecycle.viewModelScope
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.CustomField
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -167,7 +168,7 @@ fun CustomFieldsScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(state.error!!, color = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = { vm.load() }) { Text("Retry") }
+                    AppButton(onClick = { vm.load() }, label = "Retry")
                 }
             }
             else -> {

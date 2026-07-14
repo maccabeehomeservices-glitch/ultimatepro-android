@@ -252,7 +252,8 @@ fun App(
                         onPhone          = { navController.navigate(Route.PHONE) },
                         onPasteTicket    = { text -> navController.navigate("jobs/new?ticket=${Uri.encode(text)}") },
                         onCustomer       = { navController.navigate("customers/$it") },
-                        onNotifications  = { navController.navigate(Route.NOTIFICATIONS) }
+                        onNotifications  = { navController.navigate(Route.NOTIFICATIONS) },
+                        onNewJob         = { navController.navigate(Route.JOB_NEW) }
                     )
                 }
             }

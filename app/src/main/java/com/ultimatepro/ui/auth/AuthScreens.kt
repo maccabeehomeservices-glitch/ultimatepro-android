@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 
 @Composable
@@ -99,14 +100,13 @@ fun LoginScreen(
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    Button(
+                    AppButton(
                         onClick = { vm.login(email, password) },
+                        label = "Sign In",
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         enabled = email.isNotBlank() && password.isNotBlank() && !state.loading,
-                        modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp)
-                    ) {
-                        if (state.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Sign In", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    }
+                        loading = state.loading
+                    )
                 }
             }
 
@@ -184,14 +184,13 @@ fun RegisterScreen(
                 }
             }
 
-            Button(
+            AppButton(
                 onClick = { vm.register(company, first, last, email, phone, password, inviteCode) },
+                label = "Create Account",
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = listOf(company, first, email, password, inviteCode).all { it.isNotBlank() } && !state.loading,
-                modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp)
-            ) {
-                if (state.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text("Create Account", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            }
+                loading = state.loading
+            )
             Spacer(Modifier.height(32.dp))
         }
     }
