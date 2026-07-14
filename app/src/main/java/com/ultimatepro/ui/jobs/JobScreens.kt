@@ -2026,11 +2026,13 @@ fun JobDetailScreen(
                                     }
                                 }
                             }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                AppButton(onClick = onCreateEstimate, label = "+ Add Estimate", ghost = true)
-                            }
-                            if (jobInvoice != null) {
-                                AppButton(onClick = { onViewInvoice(jobInvoice.id) }, label = "View Invoice", modifier = Modifier.fillMaxWidth(), leadingIcon = Icons.Default.Receipt)
+                            // + Add Estimate (left) paired with View Invoice (right) on one row.
+                            // When there is no invoice, Add Estimate fills the full width.
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AppButton(onClick = onCreateEstimate, label = "+ Add Estimate", modifier = Modifier.weight(1f))
+                                if (jobInvoice != null) {
+                                    AppButton(onClick = { onViewInvoice(jobInvoice.id) }, label = "View Invoice", modifier = Modifier.weight(1f), leadingIcon = Icons.Default.Receipt)
+                                }
                             }
                         }
                     }
