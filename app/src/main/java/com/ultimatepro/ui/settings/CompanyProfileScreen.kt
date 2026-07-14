@@ -32,10 +32,13 @@ import coil.compose.AsyncImage
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.Company
+import com.ultimatepro.domain.model.canUi
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
 import com.ultimatepro.ui.common.ShineHairline
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -63,7 +66,21 @@ data class CompanyProfileState(
     val ucmId:         String   = "",
     val snack:         String?  = null,
     val snackError:    Boolean  = false,
+    // ── P3.10 branded email alias (<slug>@ultimatepro.pro) ──
+    val canManageAlias: Boolean  = false,
+    val aliasLoading:   Boolean  = true,
+    val aliasCurrent:   String?  = null,    // claimed slug, null if none
+    val aliasAddress:   String?  = null,    // current <slug>@ultimatepro.pro
+    val aliasEditing:   Boolean  = false,   // field open (re-opened via Edit)
+    val aliasInput:     String   = "",      // brand name being typed
+    val aliasChecking:  Boolean  = false,   // debounced probe in flight
+    val aliasAvailable: Boolean? = null,    // null = not yet checked
+    val aliasReason:    String?  = null,    // reason code when unavailable
+    val aliasBusy:      Boolean  = false,   // claim / remove in progress
+    val showAliasRemove: Boolean = false,   // confirm-release dialog
 )
+
+const val ALIAS_DOMAIN_SUFFIX = "@ultimatepro.pro"
 
 @HiltViewModel
 class CompanyProfileViewModel @Inject constructor(
@@ -73,7 +90,10 @@ class CompanyProfileViewModel @Inject constructor(
     private val _s = MutableStateFlow(CompanyProfileState())
     val state = _s.asStateFlow()
 
-    init { load() }
+    // P3.10: cancel/restart the availability probe on every keystroke (debounce).
+    private var aliasCheckJob: Job? = null
+
+    init { load(); loadAlias() }
 
     fun load() {
         viewModelScope.launch {
@@ -164,6 +184,107 @@ class CompanyProfileViewModel @Inject constructor(
     }
 
     fun clearSnack() = _s.update { it.copy(snack = null) }
+
+    // ── P3.10 branded email alias ───────────────────────────────────────────
+
+    fun loadAlias() {
+        viewModelScope.launch {
+            _s.update { it.copy(aliasLoading = true) }
+            // Same gate the settings nav uses for company/team management.
+            val canManage = canUi(repo.getStoredRole(), repo.getStoredPermissions(), "team_settings", "full")
+            when (val r = repo.getEmailAlias()) {
+                is Result.Success -> _s.update { it.copy(
+                    aliasLoading   = false,
+                    canManageAlias = canManage,
+                    aliasCurrent   = r.data.alias,
+                    aliasAddress   = r.data.address,
+                    aliasEditing   = false,
+                    aliasInput     = "",
+                    aliasAvailable = null,
+                    aliasReason    = null,
+                )}
+                is Result.Error -> _s.update { it.copy(aliasLoading = false, canManageAlias = canManage) }
+            }
+        }
+    }
+
+    fun onAliasInput(value: String) {
+        // Shared namespace is lowercase; normalize as they type so the preview + claim match.
+        val v = value.lowercase().trim()
+        _s.update { it.copy(aliasInput = v) }
+        aliasCheckJob?.cancel()
+        if (v.isBlank()) {
+            _s.update { it.copy(aliasChecking = false, aliasAvailable = null, aliasReason = null) }
+            return
+        }
+        aliasCheckJob = viewModelScope.launch {
+            _s.update { it.copy(aliasChecking = true, aliasAvailable = null, aliasReason = null) }
+            delay(400)
+            when (val r = repo.checkEmailAlias(v)) {
+                is Result.Success -> _s.update { it.copy(
+                    aliasChecking  = false,
+                    aliasAvailable = r.data.available,
+                    aliasReason    = r.data.reason,
+                )}
+                is Result.Error -> _s.update { it.copy(aliasChecking = false, aliasAvailable = null, aliasReason = null) }
+            }
+        }
+    }
+
+    fun startEditAlias() = _s.update {
+        // Pre-fill with the current slug so the owner can tweak it; availability re-checks on change.
+        it.copy(aliasEditing = true, aliasInput = it.aliasCurrent ?: "", aliasChecking = false, aliasAvailable = null, aliasReason = null)
+    }
+
+    fun cancelEditAlias() {
+        aliasCheckJob?.cancel()
+        _s.update { it.copy(aliasEditing = false, aliasInput = "", aliasChecking = false, aliasAvailable = null, aliasReason = null) }
+    }
+
+    fun claimAlias() {
+        val slug = _s.value.aliasInput.trim()
+        if (slug.isBlank()) return
+        aliasCheckJob?.cancel()
+        viewModelScope.launch {
+            _s.update { it.copy(aliasBusy = true, aliasChecking = false) }
+            when (val r = repo.setEmailAlias(slug)) {
+                is Result.Success -> _s.update { it.copy(
+                    aliasBusy      = false,
+                    aliasCurrent   = r.data.alias,
+                    aliasAddress   = r.data.address,
+                    aliasEditing   = false,
+                    aliasInput     = "",
+                    aliasAvailable = null,
+                    aliasReason    = null,
+                    snack          = "Branded email set!",
+                    snackError     = false,
+                )}
+                is Result.Error -> _s.update { it.copy(aliasBusy = false, snack = r.message, snackError = true) }
+            }
+        }
+    }
+
+    fun removeAlias() {
+        viewModelScope.launch {
+            _s.update { it.copy(aliasBusy = true, showAliasRemove = false) }
+            when (val r = repo.deleteEmailAlias()) {
+                is Result.Success -> _s.update { it.copy(
+                    aliasBusy      = false,
+                    aliasCurrent   = null,
+                    aliasAddress   = null,
+                    aliasEditing   = false,
+                    aliasInput     = "",
+                    aliasAvailable = null,
+                    aliasReason    = null,
+                    snack          = "Branded email released",
+                    snackError     = false,
+                )}
+                is Result.Error -> _s.update { it.copy(aliasBusy = false, snack = r.message, snackError = true) }
+            }
+        }
+    }
+
+    fun setAliasRemoveDialog(show: Boolean) = _s.update { it.copy(showAliasRemove = show) }
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -361,6 +482,190 @@ fun CompanyProfileScreen(
             CompanyField("Email", s.email, { vm.setField("email", it) }, keyboardType = KeyboardType.Email)
             CompanyField("Website", s.website, { vm.setField("website", it) }, keyboardType = KeyboardType.Uri)
 
+            // ── BRANDED EMAIL (P3.10) ───────────────────────────────────
+            SectionLabel("BRANDED EMAIL")
+
+            when {
+                s.aliasLoading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Loading…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Claim (no alias) OR change (Edit re-opened the field).
+                s.canManageAlias && (s.aliasCurrent == null || s.aliasEditing) -> {
+                    OutlinedTextField(
+                        value = s.aliasInput,
+                        onValueChange = { vm.onAliasInput(it) },
+                        label = { Text("Brand name") },
+                        placeholder = { Text("yourbrand") },
+                        suffix = {
+                            Text(
+                                ALIAS_DOMAIN_SUFFIX,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        isError = s.aliasInput.isNotBlank() && s.aliasAvailable == false,
+                        trailingIcon = {
+                            when {
+                                s.aliasChecking -> CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp), strokeWidth = 2.dp
+                                )
+                                s.aliasInput.isBlank() -> {}
+                                s.aliasAvailable == true -> Icon(
+                                    Icons.Default.CheckCircle, "Available", tint = AppColors.Green
+                                )
+                                s.aliasAvailable == false -> Icon(
+                                    Icons.Default.ErrorOutline, "Unavailable",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    )
+
+                    // Inline live status, else the naming rules as helper text.
+                    val rules = "3–32 characters · lowercase letters, numbers, dots or dashes"
+                    val statusText: String
+                    val statusColor: Color
+                    when {
+                        s.aliasChecking -> {
+                            statusText = "Checking availability…"
+                            statusColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        s.aliasInput.isBlank() -> {
+                            statusText = rules
+                            statusColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        s.aliasAvailable == true -> {
+                            statusText = "Available ✓"
+                            statusColor = AppColors.Green
+                        }
+                        s.aliasAvailable == false -> {
+                            statusText = aliasReasonText(s.aliasReason)
+                            statusColor = MaterialTheme.colorScheme.error
+                        }
+                        else -> {
+                            statusText = rules
+                            statusColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    }
+                    Text(
+                        statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = statusColor,
+                        fontWeight = if (s.aliasAvailable == true) FontWeight.Medium else FontWeight.Normal
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppButton(
+                            onClick = { vm.claimAlias() },
+                            label = if (s.aliasCurrent == null) "Claim" else "Save",
+                            enabled = s.aliasAvailable == true && !s.aliasBusy && !s.aliasChecking,
+                            loading = s.aliasBusy
+                        )
+                        if (s.aliasCurrent != null) {
+                            AppButton(
+                                onClick = { vm.cancelEditAlias() },
+                                label = "Cancel",
+                                ghost = true,
+                                enabled = !s.aliasBusy
+                            )
+                        }
+                    }
+                }
+
+                // An alias exists and we're not editing — show it prominently.
+                s.aliasCurrent != null -> {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.AlternateEmail, null,
+                                    tint = AppColors.Blue, modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    s.aliasAddress ?: "",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Customer replies to this address go straight to your company inbox.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (s.canManageAlias) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AppButton(
+                                onClick = { vm.startEditAlias() },
+                                label = "Edit",
+                                leadingIcon = Icons.Default.Edit,
+                                enabled = !s.aliasBusy
+                            )
+                            AppButton(
+                                onClick = { vm.setAliasRemoveDialog(true) },
+                                label = "Remove",
+                                labelColor = AppColors.Red,
+                                enabled = !s.aliasBusy
+                            )
+                        }
+                    }
+                }
+
+                // No alias and the viewer can't manage it.
+                else -> {
+                    Text(
+                        "No branded email set yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (s.showAliasRemove) {
+                AlertDialog(
+                    onDismissRequest = { vm.setAliasRemoveDialog(false) },
+                    title = { Text("Release branded email?") },
+                    text = {
+                        Text(
+                            "Releasing ${s.aliasAddress ?: "this address"} starts a cooldown " +
+                            "before it can be claimed again. Customer replies will stop routing " +
+                            "to your inbox."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { vm.removeAlias() }) {
+                            Text("Release", color = AppColors.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { vm.setAliasRemoveDialog(false) }) { Text("Keep") }
+                    }
+                )
+            }
+
             // ── DOCUMENT DEFAULTS ───────────────────────────────────────
             SectionLabel("DEFAULT TERMS & CONDITIONS")
             CompanyField("Terms auto-filled into new estimates & invoices", s.defaultTerms, { vm.setField("default_terms", it) }, maxLines = 6)
@@ -412,6 +717,17 @@ fun CompanyProfileScreen(
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+// P3.10: map the API's unavailable `reason` code to friendly inline text.
+private fun aliasReasonText(reason: String?): String = when (reason) {
+    "required" -> "Enter a name"
+    "length"   -> "3–32 characters"
+    "format"   -> "lowercase letters, numbers, dots or dashes only"
+    "reserved" -> "That name is reserved"
+    "taken"    -> "Already taken"
+    "cooldown" -> "Recently released — available again after a cooldown"
+    else       -> "Not available"
 }
 
 @Composable

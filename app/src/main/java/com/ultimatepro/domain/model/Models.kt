@@ -860,6 +860,24 @@ data class DepositStatusResponse(
     val amount:               Double  = 0.0
 )
 
+// ─── Branded Email Alias (P3.10) ──────────────────────────────────────────
+// Company's <slug>@ultimatepro.pro claim in the shared namespace. All fields
+// nullable — alias/address are null when the company has not claimed one.
+data class EmailAlias(
+    val alias:   String? = null,
+    val address: String? = null,   // <slug>@ultimatepro.pro
+    val domain:  String? = null
+)
+
+// Live availability probe result for a candidate slug. reason (when unavailable):
+// required | length | format | reserved | taken | cooldown.
+data class EmailAliasCheck(
+    val available: Boolean = false,
+    val reason:    String? = null,
+    val slug:      String? = null,
+    val address:   String? = null
+)
+
 // ─── Contractor Network ───────────────────────────────────────────────────
 
 data class ContractorAgreement(

@@ -45,6 +45,19 @@ interface ApiService {
         @Part logo: MultipartBody.Part
     ): Response<Map<String, String>>
 
+    // P3.10: branded email alias — company's <slug>@ultimatepro.pro claim.
+    @GET("company/email-alias")
+    suspend fun getEmailAlias(): Response<EmailAlias>
+
+    @GET("company/email-alias/check")
+    suspend fun checkEmailAlias(@Query("slug") slug: String): Response<EmailAliasCheck>
+
+    @PUT("company/email-alias")
+    suspend fun setEmailAlias(@Body body: Map<String, String>): Response<EmailAlias>
+
+    @DELETE("company/email-alias")
+    suspend fun deleteEmailAlias(): Response<EmailAlias>
+
     @GET("company/custom-fields")
     suspend fun getCustomFields(@Query("entity") entity: String? = null): Response<List<Map<String, Any>>>
 

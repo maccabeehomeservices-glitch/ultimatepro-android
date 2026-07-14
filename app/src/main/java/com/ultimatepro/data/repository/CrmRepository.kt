@@ -154,6 +154,12 @@ class CrmRepository @Inject constructor(
     suspend fun getCompany()                             = call { api.getCompany() }
     suspend fun updateCompany(data: Map<String, Any?>)  = call { api.updateCompany(data) }
 
+    // P3.10: branded email alias (<slug>@ultimatepro.pro) claim/check/change/release.
+    suspend fun getEmailAlias()                  = call { api.getEmailAlias() }
+    suspend fun checkEmailAlias(slug: String)    = call { api.checkEmailAlias(slug) }
+    suspend fun setEmailAlias(slug: String)      = call { api.setEmailAlias(mapOf("slug" to slug)) }
+    suspend fun deleteEmailAlias()               = call { api.deleteEmailAlias() }
+
     // P3.8: the company's active job types as (key, label) pairs. Empty on error.
     suspend fun getJobTypes(): List<Pair<String, String>> =
         when (val r = call { api.getJobTypes() }) {
