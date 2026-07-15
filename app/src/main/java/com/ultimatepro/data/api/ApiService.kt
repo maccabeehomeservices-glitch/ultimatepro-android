@@ -71,6 +71,26 @@ interface ApiService {
     @DELETE("company/sender-email")
     suspend fun deleteSenderEmail(): Response<EmailSender>
 
+    // P3.5: self-serve Twilio phone number (calls + texts). Writes gate team_settings:full.
+    // SELECT only PREPARES the purchase — no money is spent from the app.
+    @GET("provisioning/phone")
+    suspend fun getPhoneProvision(): Response<PhoneProvision>
+
+    @POST("provisioning/phone/subaccount")
+    suspend fun createPhoneSubaccount(): Response<PhoneProvision>
+
+    @GET("provisioning/phone/search")
+    suspend fun searchPhoneNumbers(@Query("area_code") areaCode: String): Response<PhoneSearch>
+
+    @POST("provisioning/phone/select")
+    suspend fun selectPhoneNumber(@Body body: Map<String, String>): Response<PhoneSelect>
+
+    @DELETE("provisioning/phone/select")
+    suspend fun clearPhoneSelection(): Response<PhoneProvision>
+
+    @GET("provisioning/phone/usage")
+    suspend fun getPhoneUsage(): Response<PhoneUsage>
+
     @GET("company/custom-fields")
     suspend fun getCustomFields(@Query("entity") entity: String? = null): Response<List<Map<String, Any>>>
 

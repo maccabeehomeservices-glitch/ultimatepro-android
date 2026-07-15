@@ -32,6 +32,8 @@ import coil.compose.AsyncImage
 import com.ultimatepro.data.repository.CrmRepository
 import com.ultimatepro.data.repository.Result
 import com.ultimatepro.domain.model.Company
+import com.ultimatepro.domain.model.PhoneNumberOption
+import com.ultimatepro.domain.model.PhoneUsage
 import com.ultimatepro.domain.model.canUi
 import com.ultimatepro.ui.common.AppButton
 import com.ultimatepro.ui.common.AppColors
@@ -85,6 +87,21 @@ data class CompanyProfileState(
     val senderInput:     String  = "",      // email being typed (status none)
     val senderBusy:      Boolean = false,   // verify / refresh / remove in progress
     val showSenderRemove: Boolean = false,  // confirm-remove dialog
+    // ── P3.5 dedicated phone number (Twilio self-serve; no money spent here) ──
+    val canManagePhone:  Boolean = false,   // team_settings:full gate for phone actions
+    val phoneLoading:    Boolean = true,
+    val phoneConfigured: Boolean = true,    // false → provisioning unavailable, hide section
+    val phoneStatus:     String  = "none",  // none | subaccount | number_selected | active
+    val phoneNumber:     String? = null,    // the active, purchased number
+    val phoneSelected:   String? = null,    // a prepared (pending) selection
+    val phonePriceUsd:   Double? = null,    // monthly price (from search/select)
+    val phoneAreaCode:   String  = "",      // 3-digit search box
+    val phoneSearching:  Boolean = false,   // search in flight
+    val phoneSearched:   Boolean = false,   // a search has completed (show results/empty)
+    val phoneResults:    List<PhoneNumberOption> = emptyList(),
+    val phoneBusy:       Boolean = false,   // select / reset in progress
+    val phoneSelecting:  String? = null,    // phoneNumber whose Select button is spinning
+    val phoneUsage:      PhoneUsage? = null,// this-month usage (active state)
 )
 
 const val ALIAS_DOMAIN_SUFFIX = "@ultimatepro.pro"
@@ -100,7 +117,7 @@ class CompanyProfileViewModel @Inject constructor(
     // P3.10: cancel/restart the availability probe on every keystroke (debounce).
     private var aliasCheckJob: Job? = null
 
-    init { load(); loadAlias(); loadSenderEmail() }
+    init { load(); loadAlias(); loadSenderEmail(); loadPhone() }
 
     fun load() {
         viewModelScope.launch {
@@ -370,6 +387,125 @@ class CompanyProfileViewModel @Inject constructor(
     }
 
     fun setSenderRemoveDialog(show: Boolean) = _s.update { it.copy(showSenderRemove = show) }
+
+    // ── P3.5 dedicated phone number (Twilio self-serve) ─────────────────────
+    // Nothing here spends money: SELECT only PREPARES the purchase; the actual
+    // buy is platform-approved off-app, so the UI ends at "pending activation".
+
+    fun loadPhone() {
+        viewModelScope.launch {
+            _s.update { it.copy(phoneLoading = true) }
+            // Same gate the alias/sender controls use for company management.
+            val canManage = canUi(repo.getStoredRole(), repo.getStoredPermissions(), "team_settings", "full")
+            when (val r = repo.getPhoneProvision()) {
+                is Result.Success -> {
+                    val d = r.data
+                    _s.update { it.copy(
+                        phoneLoading    = false,
+                        canManagePhone  = canManage,
+                        phoneConfigured = d.configured,
+                        phoneStatus     = d.status ?: "none",
+                        phoneNumber     = d.number,
+                        phoneSelected   = d.selected_number,
+                    )}
+                    if (d.configured && d.status == "active") loadPhoneUsage()
+                }
+                is Result.Error -> _s.update { it.copy(phoneLoading = false, canManagePhone = canManage) }
+            }
+        }
+    }
+
+    fun onPhoneAreaCode(value: String) = _s.update {
+        // Digits only, max 3 — matches the server's 3-digit area-code rule.
+        it.copy(phoneAreaCode = value.filter { c -> c.isDigit() }.take(3))
+    }
+
+    fun searchPhoneNumbers() {
+        val ac = _s.value.phoneAreaCode.trim()
+        if (ac.length != 3) {
+            _s.update { it.copy(snack = "Enter a 3-digit area code", snackError = true) }
+            return
+        }
+        viewModelScope.launch {
+            _s.update { it.copy(phoneSearching = true, phoneSearched = false, phoneResults = emptyList()) }
+            when (val r = repo.searchPhoneNumbers(ac)) {
+                is Result.Success -> _s.update { it.copy(
+                    phoneSearching = false,
+                    phoneSearched  = true,
+                    phoneResults   = r.data.numbers,
+                    phonePriceUsd  = r.data.monthly_price_usd ?: it.phonePriceUsd,
+                )}
+                is Result.Error -> _s.update { it.copy(
+                    phoneSearching = false,
+                    snack          = phoneErrorText(r.code, r.reason, r.message),
+                    snackError     = true,
+                )}
+            }
+        }
+    }
+
+    fun selectPhoneNumber(number: String) {
+        if (number.isBlank()) return
+        viewModelScope.launch {
+            _s.update { it.copy(phoneBusy = true, phoneSelecting = number) }
+            // 1) Ensure the (free) subaccount exists — idempotent; `already` is fine.
+            when (val sub = repo.createPhoneSubaccount()) {
+                is Result.Success -> { /* proceed to select */ }
+                is Result.Error -> {
+                    _s.update { it.copy(
+                        phoneBusy = false, phoneSelecting = null,
+                        snack = phoneErrorText(sub.code, sub.reason, sub.message), snackError = true,
+                    )}
+                    return@launch
+                }
+            }
+            // 2) PREPARE the purchase (records the choice + price; spends nothing).
+            when (val r = repo.selectPhoneNumber(number)) {
+                is Result.Success -> _s.update { it.copy(
+                    phoneBusy      = false,
+                    phoneSelecting = null,
+                    phoneStatus    = r.data.status ?: "number_selected",
+                    phoneSelected  = r.data.selected_number ?: number,
+                    phonePriceUsd  = r.data.monthly_price_usd ?: it.phonePriceUsd,
+                    phoneResults   = emptyList(),
+                    phoneSearched  = false,
+                    phoneAreaCode  = "",
+                    snack          = r.data.message ?: "Number requested — pending activation.",
+                    snackError     = false,
+                )}
+                is Result.Error -> _s.update { it.copy(
+                    phoneBusy = false, phoneSelecting = null,
+                    snack = phoneErrorText(r.code, r.reason, r.message), snackError = true,
+                )}
+            }
+        }
+    }
+
+    fun clearPhoneSelection() {
+        viewModelScope.launch {
+            _s.update { it.copy(phoneBusy = true) }
+            when (val r = repo.clearPhoneSelection()) {
+                // A selection always implies the subaccount was created, so we drop back to it.
+                is Result.Success -> _s.update { it.copy(
+                    phoneBusy     = false,
+                    phoneStatus   = "subaccount",
+                    phoneSelected = null,
+                    phoneResults  = emptyList(),
+                    phoneSearched = false,
+                )}
+                is Result.Error -> _s.update { it.copy(phoneBusy = false, snack = r.message, snackError = true) }
+            }
+        }
+    }
+
+    fun loadPhoneUsage() {
+        viewModelScope.launch {
+            when (val r = repo.getPhoneUsage()) {
+                is Result.Success -> _s.update { it.copy(phoneUsage = r.data) }
+                is Result.Error   -> { /* usage is best-effort; ignore */ }
+            }
+        }
+    }
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -914,6 +1050,225 @@ fun CompanyProfileScreen(
                 )
             }
 
+            // ── PHONE NUMBER (P3.5) ─────────────────────────────────────
+            SectionLabel("PHONE NUMBER")
+
+            when {
+                s.phoneLoading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Loading…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Provisioning not wired up on this deployment — muted note, stop.
+                !s.phoneConfigured -> {
+                    Text(
+                        "Phone provisioning isn't available yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // ACTIVE — the number is live; show it prominently + usage.
+                s.phoneStatus == "active" && s.phoneNumber != null -> {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AppColors.Green.copy(alpha = 0.12f)
+                        )
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Phone, null,
+                                tint = AppColors.Green, modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    s.phoneNumber ?: "",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Your dedicated number for calls and texts.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    s.phoneUsage?.let { u ->
+                        Text(
+                            "This month: ${u.sms} texts · ${u.calls} calls · ${usdLabel(u.cost_usd)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // NUMBER_SELECTED — requested, pending platform activation.
+                s.phoneStatus == "number_selected" -> {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Phone, null,
+                                    tint = AppColors.Blue, modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    s.phoneSelected ?: "",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            val priceStr = priceLabel(s.phonePriceUsd)
+                            Text(
+                                if (priceStr != null)
+                                    "Requested · $priceStr. Pending activation by the UltimatePro team."
+                                else
+                                    "Requested. Pending activation by the UltimatePro team.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (s.canManagePhone) {
+                        AppButton(
+                            onClick = { vm.clearPhoneSelection() },
+                            label = "Choose a different number",
+                            ghost = true,
+                            enabled = !s.phoneBusy,
+                            loading = s.phoneBusy
+                        )
+                    }
+                }
+
+                // NONE / SUBACCOUNT (no selection), viewer can manage → search + pick.
+                s.canManagePhone -> {
+                    Text(
+                        "Get a dedicated number for calls and texts.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = s.phoneAreaCode,
+                            onValueChange = { vm.onPhoneAreaCode(it) },
+                            label = { Text("Area code") },
+                            placeholder = { Text("757") },
+                            modifier = Modifier.width(130.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        AppButton(
+                            onClick = { vm.searchPhoneNumbers() },
+                            label = "Search",
+                            enabled = s.phoneAreaCode.length == 3 && !s.phoneSearching,
+                            loading = s.phoneSearching
+                        )
+                    }
+
+                    if (s.phoneSearched) {
+                        if (s.phoneResults.isEmpty()) {
+                            Text(
+                                "No numbers found for that area code. Try another.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            priceLabel(s.phonePriceUsd)?.let { p ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        p,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        " + usage",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            s.phoneResults.forEach { n ->
+                                Card(
+                                    Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                n.friendlyName ?: n.phoneNumber ?: "",
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            val place = listOfNotNull(
+                                                n.locality?.takeIf { it.isNotBlank() },
+                                                n.region?.takeIf { it.isNotBlank() }
+                                            ).joinToString(", ")
+                                            if (place.isNotBlank()) {
+                                                Text(
+                                                    place,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        AppButton(
+                                            onClick = { vm.selectPhoneNumber(n.phoneNumber ?: "") },
+                                            label = "Request this number",
+                                            enabled = !s.phoneBusy,
+                                            loading = s.phoneSelecting == n.phoneNumber
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // NONE / SUBACCOUNT, viewer can't manage.
+                else -> {
+                    Text(
+                        "No dedicated number set yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // ── DOCUMENT DEFAULTS ───────────────────────────────────────
             SectionLabel("DEFAULT TERMS & CONDITIONS")
             CompanyField("Terms auto-filled into new estimates & invoices", s.defaultTerms, { vm.setField("default_terms", it) }, maxLines = 6)
@@ -987,6 +1342,19 @@ private fun senderErrorText(code: Int, reason: String?, fallback: String): Strin
     reason == "format"                -> "Enter a valid email"
     else                              -> fallback
 }
+
+// P3.5: map a rejected phone-provisioning call (code + reason) to friendly text.
+// 503/not_configured = provisioning off; a search 400 carries reason `area_code`;
+// everything else (e.g. a bad number `format`) falls back to the server's message.
+private fun phoneErrorText(code: Int, reason: String?, fallback: String): String = when {
+    code == 503 || reason == "not_configured" -> "Phone provisioning isn't available yet"
+    reason == "area_code"                     -> "Enter a 3-digit area code"
+    else                                      -> fallback
+}
+
+// P3.5: USD money label (e.g. "$1.15"); `priceLabel` appends "/mo" for the monthly rate.
+private fun usdLabel(v: Double?): String = "\$%.2f".format(v ?: 0.0)
+private fun priceLabel(v: Double?): String? = v?.let { "${usdLabel(it)}/mo" }
 
 @Composable
 private fun SectionLabel(text: String) {

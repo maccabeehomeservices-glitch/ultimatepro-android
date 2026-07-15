@@ -893,6 +893,50 @@ data class EmailSender(
     val reason:   String? = null
 )
 
+// ─── Dedicated Phone Number (P3.5, Twilio self-serve) ─────────────────────
+// A company's own number for calls + texts. status: none | subaccount |
+// number_selected | active. `configured` false → provisioning not available.
+// No money is spent from the app: SELECT only PREPARES the purchase; the actual
+// buy is platform-approved off-app.
+data class PhoneProvision(
+    val status:          String?  = null,
+    val subaccount:      Boolean  = false,
+    val number:          String?  = null,   // the active, purchased number
+    val selected_number: String?  = null,   // a prepared (pending) selection
+    val a2p_status:      String?  = null,
+    val configured:      Boolean  = false
+)
+
+// One available local number returned by the area-code search.
+data class PhoneNumberOption(
+    val phoneNumber:  String? = null,
+    val friendlyName: String? = null,
+    val locality:     String? = null,
+    val region:       String? = null
+)
+
+// Area-code search result: candidate numbers + the recurring monthly price.
+data class PhoneSearch(
+    val numbers:           List<PhoneNumberOption> = emptyList(),
+    val monthly_price_usd: Double? = null
+)
+
+// SELECT (prepare purchase) result — records the choice; spends nothing.
+data class PhoneSelect(
+    val selected_number:   String? = null,
+    val monthly_price_usd: Double? = null,
+    val status:            String? = null,
+    val message:           String? = null
+)
+
+// Per-subaccount usage metering for the active number (this month).
+data class PhoneUsage(
+    val subaccount: Boolean = false,
+    val sms:        Int     = 0,
+    val calls:      Int     = 0,
+    val cost_usd:   Double  = 0.0
+)
+
 // ─── Contractor Network ───────────────────────────────────────────────────
 
 data class ContractorAgreement(

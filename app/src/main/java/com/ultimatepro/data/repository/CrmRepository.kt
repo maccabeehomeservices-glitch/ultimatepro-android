@@ -168,6 +168,16 @@ class CrmRepository @Inject constructor(
     suspend fun getSenderEmailStatus()           = call { api.getSenderEmailStatus() }
     suspend fun deleteSenderEmail()              = call { api.deleteSenderEmail() }
 
+    // P3.5: self-serve Twilio phone number (calls + texts). Writes gate team_settings:full
+    // server-side. SELECT only PREPARES the purchase — the app never spends money. Error
+    // reason surfaces via Result.Error.reason (area_code | not_configured | format).
+    suspend fun getPhoneProvision()              = call { api.getPhoneProvision() }
+    suspend fun createPhoneSubaccount()          = call { api.createPhoneSubaccount() }
+    suspend fun searchPhoneNumbers(areaCode: String) = call { api.searchPhoneNumbers(areaCode) }
+    suspend fun selectPhoneNumber(number: String) = call { api.selectPhoneNumber(mapOf("phone_number" to number)) }
+    suspend fun clearPhoneSelection()            = call { api.clearPhoneSelection() }
+    suspend fun getPhoneUsage()                  = call { api.getPhoneUsage() }
+
     // P3.8: the company's active job types as (key, label) pairs. Empty on error.
     suspend fun getJobTypes(): List<Pair<String, String>> =
         when (val r = call { api.getJobTypes() }) {
