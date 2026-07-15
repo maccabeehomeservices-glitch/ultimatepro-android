@@ -17,7 +17,7 @@ import javax.inject.Singleton
 // Sealed result - every API call returns one of these
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
-    data class Error(val message: String, val code: Int = 0) : Result<Nothing>()
+    data class Error(val message: String, val code: Int = 0, val reason: String? = null) : Result<Nothing>()
 }
 
 @Singleton
@@ -54,10 +54,11 @@ class CrmRepository @Inject constructor(
                 Result.Success(resp.body()!!)
             } else {
                 val errorStr = resp.errorBody()?.string() ?: "Unknown error"
-                val msg = try {
-                    Gson().fromJson(errorStr, Map::class.java)["error"]?.toString() ?: errorStr
-                } catch (e: Exception) { errorStr }
-                Result.Error(msg, resp.code())
+                val parsed = try { Gson().fromJson(errorStr, Map::class.java) } catch (e: Exception) { null }
+                val msg = parsed?.get("error")?.toString() ?: errorStr
+                // P3.10: machine `reason` code (e.g. format|address_required|no_key) for the UI to localize.
+                val reason = parsed?.get("reason")?.toString()
+                Result.Error(msg, resp.code(), reason)
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error — check your connection")
@@ -159,6 +160,13 @@ class CrmRepository @Inject constructor(
     suspend fun checkEmailAlias(slug: String)    = call { api.checkEmailAlias(slug) }
     suspend fun setEmailAlias(slug: String)      = call { api.setEmailAlias(mapOf("slug" to slug)) }
     suspend fun deleteEmailAlias()               = call { api.deleteEmailAlias() }
+
+    // P3.10 Tier 2: BYO sender email (verify your own address). POST rejection reason is
+    // surfaced via Result.Error.reason (format | address_required | sendgrid | no_key).
+    suspend fun getSenderEmail()                 = call { api.getSenderEmail() }
+    suspend fun setSenderEmail(email: String)    = call { api.setSenderEmail(mapOf("email" to email)) }
+    suspend fun getSenderEmailStatus()           = call { api.getSenderEmailStatus() }
+    suspend fun deleteSenderEmail()              = call { api.deleteSenderEmail() }
 
     // P3.8: the company's active job types as (key, label) pairs. Empty on error.
     suspend fun getJobTypes(): List<Pair<String, String>> =

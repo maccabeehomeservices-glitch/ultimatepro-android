@@ -78,6 +78,13 @@ data class CompanyProfileState(
     val aliasReason:    String?  = null,    // reason code when unavailable
     val aliasBusy:      Boolean  = false,   // claim / remove in progress
     val showAliasRemove: Boolean = false,   // confirm-release dialog
+    // ── P3.10 Tier 2: BYO sender email (verify your own address) ──
+    val senderLoading:   Boolean = true,
+    val senderStatus:    String  = "none",  // none | pending | verified
+    val senderEmail:     String? = null,    // pending/verified address on file
+    val senderInput:     String  = "",      // email being typed (status none)
+    val senderBusy:      Boolean = false,   // verify / refresh / remove in progress
+    val showSenderRemove: Boolean = false,  // confirm-remove dialog
 )
 
 const val ALIAS_DOMAIN_SUFFIX = "@ultimatepro.pro"
@@ -93,7 +100,7 @@ class CompanyProfileViewModel @Inject constructor(
     // P3.10: cancel/restart the availability probe on every keystroke (debounce).
     private var aliasCheckJob: Job? = null
 
-    init { load(); loadAlias() }
+    init { load(); loadAlias(); loadSenderEmail() }
 
     fun load() {
         viewModelScope.launch {
@@ -285,6 +292,84 @@ class CompanyProfileViewModel @Inject constructor(
     }
 
     fun setAliasRemoveDialog(show: Boolean) = _s.update { it.copy(showAliasRemove = show) }
+
+    // ── P3.10 Tier 2: BYO sender email ──────────────────────────────────────
+
+    fun loadSenderEmail() {
+        viewModelScope.launch {
+            _s.update { it.copy(senderLoading = true) }
+            when (val r = repo.getSenderEmail()) {
+                is Result.Success -> _s.update { it.copy(
+                    senderLoading = false,
+                    senderStatus  = r.data.status ?: "none",
+                    senderEmail   = r.data.email,
+                    senderInput   = "",
+                )}
+                is Result.Error -> _s.update { it.copy(senderLoading = false) }
+            }
+        }
+    }
+
+    fun onSenderInput(value: String) = _s.update { it.copy(senderInput = value.trim()) }
+
+    fun verifySenderEmail() {
+        val email = _s.value.senderInput.trim()
+        if (email.isBlank()) return
+        viewModelScope.launch {
+            _s.update { it.copy(senderBusy = true) }
+            when (val r = repo.setSenderEmail(email)) {
+                is Result.Success -> _s.update { it.copy(
+                    senderBusy   = false,
+                    senderStatus = r.data.status ?: "pending",
+                    senderEmail  = r.data.email ?: email,
+                    snack        = r.data.message ?: "Verification email sent — check your inbox.",
+                    snackError   = false,
+                )}
+                is Result.Error -> _s.update { it.copy(
+                    senderBusy = false,
+                    snack      = senderErrorText(r.code, r.reason, r.message),
+                    snackError = true,
+                )}
+            }
+        }
+    }
+
+    fun refreshSenderStatus() {
+        viewModelScope.launch {
+            _s.update { it.copy(senderBusy = true) }
+            when (val r = repo.getSenderEmailStatus()) {
+                is Result.Success -> _s.update { it.copy(
+                    senderBusy   = false,
+                    senderStatus = r.data.status ?: "none",
+                    senderEmail  = r.data.email,
+                    snack        = if (r.data.status == "verified")
+                        "Verified! Emails now send from ${r.data.email ?: "your address"}."
+                    else "Not confirmed yet — click the link in the email, then Refresh.",
+                    snackError   = false,
+                )}
+                is Result.Error -> _s.update { it.copy(senderBusy = false, snack = r.message, snackError = true) }
+            }
+        }
+    }
+
+    fun removeSenderEmail() {
+        viewModelScope.launch {
+            _s.update { it.copy(senderBusy = true, showSenderRemove = false) }
+            when (val r = repo.deleteSenderEmail()) {
+                is Result.Success -> _s.update { it.copy(
+                    senderBusy   = false,
+                    senderStatus = "none",
+                    senderEmail  = null,
+                    senderInput  = "",
+                    snack        = "Sender email removed",
+                    snackError   = false,
+                )}
+                is Result.Error -> _s.update { it.copy(senderBusy = false, snack = r.message, snackError = true) }
+            }
+        }
+    }
+
+    fun setSenderRemoveDialog(show: Boolean) = _s.update { it.copy(showSenderRemove = show) }
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -666,6 +751,166 @@ fun CompanyProfileScreen(
                 )
             }
 
+            // ── Tier 2: verify your OWN email as the sending identity ────
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Or use your own email address",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            when {
+                s.senderLoading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Loading…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Verified — emails now send from the company's own address.
+                s.senderStatus == "verified" -> {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AppColors.Green.copy(alpha = 0.12f)
+                        )
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle, null,
+                                tint = AppColors.Green, modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Verified — emails now send from ${s.senderEmail ?: ""}.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    if (s.canManageAlias) {
+                        AppButton(
+                            onClick = { vm.setSenderRemoveDialog(true) },
+                            label = "Remove",
+                            labelColor = AppColors.Red,
+                            enabled = !s.senderBusy
+                        )
+                    }
+                }
+
+                // Pending — SendGrid link sent, waiting for the owner to confirm.
+                s.senderStatus == "pending" -> {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                "Verification sent to ${s.senderEmail ?: "your address"} — check that " +
+                                "inbox, click the SendGrid link, then Refresh.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Until you confirm, emails keep sending from your alias (or default) " +
+                                "with replies going to ${s.senderEmail ?: "that address"}.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (s.canManageAlias) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AppButton(
+                                onClick = { vm.refreshSenderStatus() },
+                                label = "Refresh status",
+                                leadingIcon = Icons.Default.Refresh,
+                                enabled = !s.senderBusy,
+                                loading = s.senderBusy
+                            )
+                            AppButton(
+                                onClick = { vm.setSenderRemoveDialog(true) },
+                                label = "Remove",
+                                labelColor = AppColors.Red,
+                                enabled = !s.senderBusy
+                            )
+                        }
+                    }
+                }
+
+                // status == none, viewer can manage — offer the verify field.
+                s.canManageAlias -> {
+                    OutlinedTextField(
+                        value = s.senderInput,
+                        onValueChange = { vm.onSenderInput(it) },
+                        label = { Text("Your email address") },
+                        placeholder = { Text("you@yourcompany.com") },
+                        leadingIcon = { Icon(Icons.Default.Email, null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    )
+                    Text(
+                        "We'll email you a confirmation link. Once you click it, your emails send " +
+                        "from this address.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    AppButton(
+                        onClick = { vm.verifySenderEmail() },
+                        label = "Verify this address",
+                        enabled = s.senderInput.isNotBlank() && !s.senderBusy,
+                        loading = s.senderBusy
+                    )
+                }
+
+                // status == none, viewer can't manage.
+                else -> {
+                    Text(
+                        "No custom sending address set.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (s.showSenderRemove) {
+                AlertDialog(
+                    onDismissRequest = { vm.setSenderRemoveDialog(false) },
+                    title = { Text("Remove sender email?") },
+                    text = {
+                        Text(
+                            "Emails will go back to sending from your branded alias (or the default " +
+                            "address). You can verify it again later."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { vm.removeSenderEmail() }) {
+                            Text("Remove", color = AppColors.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { vm.setSenderRemoveDialog(false) }) { Text("Keep") }
+                    }
+                )
+            }
+
             // ── DOCUMENT DEFAULTS ───────────────────────────────────────
             SectionLabel("DEFAULT TERMS & CONDITIONS")
             CompanyField("Terms auto-filled into new estimates & invoices", s.defaultTerms, { vm.setField("default_terms", it) }, maxLines = 6)
@@ -728,6 +973,16 @@ private fun aliasReasonText(reason: String?): String = when (reason) {
     "taken"    -> "Already taken"
     "cooldown" -> "Recently released — available again after a cooldown"
     else       -> "Not available"
+}
+
+// P3.10 Tier 2: map a rejected sender-email POST (code + reason) to friendly text.
+// 503/no_key = verification not configured; the two 400 reasons get distinct copy;
+// everything else (e.g. a SendGrid rejection) falls back to the server's message.
+private fun senderErrorText(code: Int, reason: String?, fallback: String): String = when {
+    code == 503 || reason == "no_key" -> "Email verification isn't set up"
+    reason == "address_required"      -> "Add your company street + city first"
+    reason == "format"                -> "Enter a valid email"
+    else                              -> fallback
 }
 
 @Composable

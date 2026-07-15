@@ -878,6 +878,21 @@ data class EmailAliasCheck(
     val address:   String? = null
 )
 
+// ─── BYO Sender Email (P3.10 Tier 2) ──────────────────────────────────────
+// Company's own verified sending identity (SendGrid single-sender). status:
+// none | pending | verified. `message` is the success hint returned by POST;
+// `error`/`reason` are populated when the POST is rejected (reason: format |
+// address_required | sendgrid | no_key).
+data class EmailSender(
+    val email:    String? = null,
+    val name:     String? = null,
+    val verified: Boolean = false,
+    val status:   String? = null,
+    val message:  String? = null,
+    val error:    String? = null,
+    val reason:   String? = null
+)
+
 // ─── Contractor Network ───────────────────────────────────────────────────
 
 data class ContractorAgreement(

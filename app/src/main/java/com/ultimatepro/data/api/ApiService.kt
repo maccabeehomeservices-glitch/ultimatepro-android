@@ -58,6 +58,19 @@ interface ApiService {
     @DELETE("company/email-alias")
     suspend fun deleteEmailAlias(): Response<EmailAlias>
 
+    // P3.10 Tier 2: BYO sender email — verify the company's own address as the From identity.
+    @GET("company/sender-email")
+    suspend fun getSenderEmail(): Response<EmailSender>
+
+    @POST("company/sender-email")
+    suspend fun setSenderEmail(@Body body: Map<String, String>): Response<EmailSender>
+
+    @GET("company/sender-email/status")
+    suspend fun getSenderEmailStatus(): Response<EmailSender>
+
+    @DELETE("company/sender-email")
+    suspend fun deleteSenderEmail(): Response<EmailSender>
+
     @GET("company/custom-fields")
     suspend fun getCustomFields(@Query("entity") entity: String? = null): Response<List<Map<String, Any>>>
 
