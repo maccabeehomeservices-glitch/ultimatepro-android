@@ -820,15 +820,17 @@ fun CompanyProfileScreen(
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             Text(
-                                "Verification sent to ${s.senderEmail ?: "your address"} — check that " +
-                                "inbox, click the SendGrid link, then Refresh.",
+                                "Verification sent to ${s.senderEmail ?: "your address"}. Open it, click " +
+                                "the SendGrid \"Verify Single Sender\" button, then tap Refresh status below. " +
+                                "If a login page appears after clicking, close it — no SendGrid account needed.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Until you confirm, emails keep sending from your alias (or default) " +
-                                "with replies going to ${s.senderEmail ?: "that address"}.",
+                                "Even before you confirm, your estimates and invoices already send with " +
+                                "replies going to ${s.senderEmail ?: "that address"} — nothing is blocked. " +
+                                "Confirming just lets them send from that address too.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -867,8 +869,9 @@ fun CompanyProfileScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                     )
                     Text(
-                        "We'll email you a confirmation link. Once you click it, your emails send " +
-                        "from this address.",
+                        "You'll get a confirmation email from SendGrid. Open it and click the " +
+                        "\"Verify Single Sender\" button. If a login page appears afterward, just close " +
+                        "it — you don't need a SendGrid account. Then tap Refresh status here.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
